@@ -9,7 +9,17 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSExceptionDomains": {
+            "localhost": { "NSExceptionAllowsInsecureHTTPLoads": true, "NSIncludesSubdomains": true },
+            "127.0.0.1": { "NSExceptionAllowsInsecureHTTPLoads": true, "NSIncludesSubdomains": true },
+            "10.0.2.2": { "NSExceptionAllowsInsecureHTTPLoads": true, "NSIncludesSubdomains": true }
+          }
+        }
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -43,6 +53,9 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "note": "Retiré apiBaseUrl car IP obsolète; utiliser EXPO_PUBLIC_API_BASE_URL ou détection dynamique"
     }
   }
 }

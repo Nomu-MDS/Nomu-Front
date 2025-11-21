@@ -42,6 +42,41 @@ To learn more about developing your project with Expo, look at the following res
 - [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
 - [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
 
+## Variables d'environnement (.env)
+
+Créez un fichier `.env` à la racine pour surcharger l'URL de l'API backend sans modifier le code :
+
+```bash
+EXPO_PUBLIC_API_BASE_URL=http://localhost:3001
+```
+
+Notes importantes :
+- Les variables doivent commencer par `EXPO_PUBLIC_` pour être injectées côté client par Expo.
+- Ne placez jamais de secrets (clé API privée, token admin) dans ces variables.
+- Sur appareil physique, remplacez `localhost` par l'IP LAN de votre machine (ex: `http://10.25.132.43:3001`).
+- Après modification du `.env`, redémarrez le serveur Expo pour prise en compte :
+   ```bash
+   npx expo start --clear
+   ```
+
+Un fichier `.env.example` est fourni pour référence.
+
+## Session & Auth
+
+La session (token) est maintenant persistée avec `AsyncStorage` :
+
+- Stockage: le token est enregistré sous la clé `authToken`.
+- Chargement initial: au démarrage (`app/_layout.tsx`), l'app charge le token avant d'afficher les écrans.
+- Accès: utilisez `getTokenAsync()` si vous avez besoin du token après un rechargement fraîchement effectué.
+- Nettoyage: appelez `clearToken()` pour déconnecter l'utilisateur.
+
+Après modification du code de session, si le token ne semble pas persister, forcez un redémarrage:
+```bash
+npx expo start --clear
+```
+
+Pour sécuriser davantage (ex: en production), remplacez `AsyncStorage` par `expo-secure-store`.
+
 ## Join the community
 
 Join our community of developers creating universal apps.
