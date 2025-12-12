@@ -1,58 +1,270 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import React, { useMemo, useState } from 'react';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Button } from '@/components/ui/button';
+import { FilterBadge } from '@/components/ui/filter-badge';
+import { Input } from '@/components/ui/input';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+
+const HOBBIES = ['Sport', 'Music', 'Travel', 'Food', 'Tech', 'Art'];
 
 export default function SignupScreen() {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const router = useRouter();
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = Colors[colorScheme];
 
-  const handleSignup = () => {
-    // TODO: Ajouter la logique d'inscription avec l'API backend
-    console.log('Name:', name);
-    console.log('Email:', email);
-    console.log('Password:', password);
-    router.push('/login'); // Rediriger vers la page de connexion après inscription
+  const [step, setStep] = useState(1);
+  const totalSteps = 3;
+
+  const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [hobbies, setHobbies] = useState<string[]>([]);
+
+  const emailValid = /\S+@\S+\.\S+/.test(email);
+  const firstNameValid = firstName.trim().length >= 2;
+  const lastNameValid = lastName.trim().length >= 2;
+  const passwordMismatch = passwordConfirm.length > 0 && password !== passwordConfirm;
+
+  const step1Valid =
+    emailValid &&
+    password.length > 0 &&
+    passwordConfirm.length > 0 &&
+    !passwordMismatch &&
+    firstNameValid &&
+    lastNameValid;
+
+  const step2Valid = avatarUrl.trim().length > 0;
+  const step3Valid = hobbies.length > 0;
+
+  const progress = useMemo(() => (step / totalSteps) * 100, [step, totalSteps]);
+
+  const toggleHobby = (label: string) => {
+    setHobbies((prev) =>
+      prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label],
+    );
+  };
+
+  const pickImageFromLibrary = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission requise', 'Autorisez l’accès à la galerie pour choisir une photo.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.length) {
+      setAvatarUrl(result.assets[0]?.uri ?? '');
+    }
+  };
+
+  const pickImageFromCamera = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission requise', 'Autorisez l’accès à la caméra pour prendre une photo.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.length) {
+      setAvatarUrl(result.assets[0]?.uri ?? '');
+    }
+  };
+
+  const pickImage = () => {
+    Alert.alert('Ajouter une photo', 'Choisissez une source', [
+      { text: 'Appareil photo', onPress: pickImageFromCamera },
+      { text: 'Galerie', onPress: pickImageFromLibrary },
+      { text: 'Annuler', style: 'cancel' },
+    ]);
+  };
+
+  const goNext = () => {
+    if (step === 1 && !step1Valid) return;
+    if (step === 2 && !step2Valid) return;
+    setStep((prev) => Math.min(totalSteps, prev + 1));
+  };
+
+  const goBack = () => setStep((prev) => Math.max(1, prev - 1));
+
+  const confirmExit = () => {
+    Alert.alert(
+      'Quitter l’inscription ?',
+      'Vous allez revenir à l’écran précédent.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Quitter', style: 'destructive', onPress: () => router.back() },
+      ],
+    );
+  };
+
+  const handleTopBack = () => {
+    if (step === 1) {
+      confirmExit();
+      return;
+    }
+
+    goBack();
+  };
+
+  const handleSubmit = () => {
+    if (!step3Valid) return;
+    // TODO: connecter l'API d'inscription
+    console.log({ email, firstName, lastName, avatarUrl, hobbies });
+    router.push('/login');
   };
 
   return (
     <ThemedView style={styles.screen}>
       <View style={styles.card}>
-        <ThemedText type="title" style={styles.title}>Créer un compte</ThemedText>
-        <ThemedText style={[styles.subtitle, styles.textDark]}>Rejoignez Nomu pour découvrir et partager vos lieux favoris.</ThemedText>
+        <View style={styles.topBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Retour"
+            onPress={handleTopBack}
+            hitSlop={12}
+            style={styles.backButton}
+          >
+            <MaterialIcons name="arrow-back-ios" size={18} color={theme.text} />
+          </Pressable>
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${progress}%`, backgroundColor: theme.primary },
+              ]}
+            />
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Fermer"
+            onPress={confirmExit}
+            hitSlop={12}
+            style={styles.closeButton}
+          >
+            <MaterialIcons name="close" size={20} color={theme.text} />
+          </Pressable>
+        </View>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Nom"
-          value={name}
-          onChangeText={setName}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Mot de passe"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+        <ThemedText type="title" style={styles.title}>
+          Création de compte
+        </ThemedText>
+        <ThemedText style={styles.subtitle}>
+          Étape {step} sur {totalSteps}
+        </ThemedText>
 
-        <Pressable style={styles.primaryButton} onPress={handleSignup}>
-          <ThemedText style={styles.primaryButtonText}>S'inscrire</ThemedText>
-        </Pressable>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          {step === 1 ? (
+            <View style={styles.section}>
+              <Input
+                label="Email"
+                placeholder="email@exemple.com"
+                value={email}
+                onChangeText={setEmail}
+                type="email"
+                autoCapitalize="none"
+                autoCorrect={false}
+                helperText={email.length > 0 && !emailValid ? 'Entrez un email valide' : undefined}
+              />
+              <Input
+                label="Prénom"
+                placeholder="Votre prénom"
+                value={firstName}
+                onChangeText={setFirstName}
+                helperText={firstName.length > 0 && !firstNameValid ? 'Minimum 2 lettres' : undefined}
+              />
+              <Input
+                label="Nom"
+                placeholder="Votre nom"
+                value={lastName}
+                onChangeText={setLastName}
+                helperText={lastName.length > 0 && !lastNameValid ? 'Minimum 2 lettres' : undefined}
+              />
+              <Input
+                label="Mot de passe"
+                placeholder="********"
+                value={password}
+                onChangeText={setPassword}
+                type="password"
+                helperText={passwordMismatch ? 'Les mots de passe doivent correspondre' : undefined}
+              />
+              <Input
+                label="Confirmer le mot de passe"
+                placeholder="********"
+                value={passwordConfirm}
+                onChangeText={setPasswordConfirm}
+                type="password"
+                helperText={passwordMismatch ? 'Les mots de passe doivent correspondre' : undefined}
+              />
+            </View>
+          ) : null}
 
-        <View style={styles.footerRow}>
-          <ThemedText style={styles.textDark}>Déjà un compte ?</ThemedText>
-          <ThemedText type="link" style={styles.textDark}> Connexion</ThemedText>
+          {step === 2 ? (
+            <View style={styles.section}>
+              <ThemedText style={styles.sectionTitle}>Photo de profil</ThemedText>
+              <Pressable
+                style={[styles.avatarTouchable, { borderColor: theme.border }]}
+                onPress={pickImage}
+              >
+                <View style={styles.avatarCircle}>
+                  {avatarUrl ? (
+                    <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+                  ) : (
+                    <ThemedText style={styles.avatarPlaceholder}>Ajouter une photo</ThemedText>
+                  )}
+                </View>
+                <View style={[styles.cameraBadge, { backgroundColor: theme.primary }]}> 
+                  <MaterialIcons name="photo-camera" size={20} color="#FFFFFF" />
+                </View>
+              </Pressable>
+            </View>
+          ) : null}
+
+          {step === 3 ? (
+            <View style={styles.section}>
+              <ThemedText style={styles.sectionTitle}>Choisissez vos hobbies</ThemedText>
+              <View style={styles.badgesRow}>
+                {HOBBIES.map((hobby) => (
+                  <FilterBadge
+                    key={hobby}
+                    label={hobby}
+                    selected={hobbies.includes(hobby)}
+                    onPress={() => toggleHobby(hobby)}
+                  />
+                ))}
+              </View>
+            </View>
+          ) : null}
+        </ScrollView>
+
+        <View style={styles.actionsRow}>
+          {step < totalSteps ? (
+            <Button
+              label="Suivant"
+              onPress={goNext}
+              disabled={(step === 1 && !step1Valid) || (step === 2 && !step2Valid)}
+            />
+          ) : (
+            <Button label="Terminer" onPress={handleSubmit} disabled={!step3Valid} />
+          )}
         </View>
       </View>
     </ThemedView>
@@ -62,58 +274,100 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: '#f5f7fb',
+    padding: 20,
   },
   card: {
-    width: '100%',
-    maxWidth: 420,
+    flex: 1,
     borderRadius: 24,
-    padding: 24,
-    backgroundColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
+    padding: 20,
     gap: 12,
   },
+  progressTrack: {
+    flex: 1,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: '#F1F2F6',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  backButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 6,
+  },
+  closeButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 6,
+  },
   title: {
-    color: '#000000',
+    marginTop: 4,
   },
   subtitle: {
-    opacity: 0.7,
-    marginBottom: 8,
+    opacity: 0.75,
   },
-  input: {
-    width: '100%',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: '#d0d4dd',
-    borderRadius: 12,
-    backgroundColor: '#f9fafc',
+  content: {
+    gap: 16,
+    paddingBottom: 24,
   },
-  primaryButton: {
-    marginTop: 8,
-    borderRadius: 999,
-    backgroundColor: '#111827',
-    paddingVertical: 12,
-    alignItems: 'center',
+  section: {
+    gap: 12,
   },
-  primaryButtonText: {
-    color: '#ffffff',
+  sectionTitle: {
     fontWeight: '600',
   },
-  footerRow: {
-    marginTop: 8,
-    flexDirection: 'row',
+  avatarTouchable: {
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    paddingVertical: 12,
   },
-  textDark: {
-    color: '#000000',
+  avatarCircle: {
+    width: 230,
+    height: 230,
+    borderRadius: 115,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarPlaceholder: {
+    opacity: 0.7,
+  },
+  cameraBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  badgesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 
