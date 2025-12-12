@@ -5,25 +5,53 @@
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
+const palette = {
+  primary: '#FF6A57',
+  primaryMuted: '#FF8A78',
+  darkPrimary: '#E15B4A',
+  textDark: '#0E224A',
+  textLight: '#ECEDEE',
+  borderLight: '#D9DEE8',
+  borderDark: '#2C3038',
+  surfaceLight: '#FFFFFF',
+  surfaceDark: '#1A1C20',
+  iconLight: '#687076',
+  iconDark: '#9BA1A6',
+};
+
+const tintColorLight = palette.primary;
 const tintColorDark = '#fff';
 
 export const Colors = {
   light: {
     text: '#11181C',
-    background: '#fff',
+    background: palette.surfaceLight,
     tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
+    icon: palette.iconLight,
+    tabIconDefault: palette.iconLight,
     tabIconSelected: tintColorLight,
+    primary: palette.primary,
+    primaryMuted: palette.primaryMuted,
+    border: palette.borderLight,
+    surface: palette.surfaceLight,
+    inputBorder: palette.borderLight,
+    inputBackground: palette.surfaceLight,
+    placeholder: '#0E224A99',
   },
   dark: {
-    text: '#ECEDEE',
+    text: palette.textLight,
     background: '#151718',
     tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
+    icon: palette.iconDark,
+    tabIconDefault: palette.iconDark,
     tabIconSelected: tintColorDark,
+    primary: palette.darkPrimary,
+    primaryMuted: palette.primary,
+    border: palette.borderDark,
+    surface: palette.surfaceDark,
+    inputBorder: palette.borderDark,
+    inputBackground: '#1E1F22',
+    placeholder: '#ECEDEE99',
   },
 };
 
