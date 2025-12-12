@@ -19,6 +19,9 @@ const palette = {
   iconDark: '#9BA1A6',
 };
 
+// Orange accent color for navigation (using palette primary)
+const orangeAccent = palette.primary;
+
 const tintColorLight = palette.primary;
 const tintColorDark = '#fff';
 
@@ -28,8 +31,10 @@ export const Colors = {
     background: palette.surfaceLight,
     tint: tintColorLight,
     icon: palette.iconLight,
-    tabIconDefault: palette.iconLight,
-    tabIconSelected: tintColorLight,
+    tabIconDefault: orangeAccent,
+    tabIconSelected: orangeAccent,
+    tabBarBackground: '#FFFFFF',
+    tabBarBorder: '#E5E7EB',
     primary: palette.primary,
     primaryMuted: palette.primaryMuted,
     border: palette.borderLight,
@@ -41,10 +46,12 @@ export const Colors = {
   dark: {
     text: palette.textLight,
     background: '#151718',
-    tint: tintColorDark,
+    tint: orangeAccent,
     icon: palette.iconDark,
-    tabIconDefault: palette.iconDark,
-    tabIconSelected: tintColorDark,
+    tabIconDefault: orangeAccent,
+    tabIconSelected: orangeAccent,
+    tabBarBackground: '#151718',
+    tabBarBorder: '#374151',
     primary: palette.darkPrimary,
     primaryMuted: palette.primary,
     border: palette.borderDark,
