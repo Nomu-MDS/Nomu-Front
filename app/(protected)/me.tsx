@@ -63,6 +63,13 @@ export default function MeScreen() {
           console.log('/users/me payload:', data);
           setUser(data);
         } else {
+          if (response.status === 401) {
+            // Token expiré ou invalide - redirection silencieuse
+            console.log('[Me] Token expiré, redirection vers login');
+            await clearToken();
+            router.replace('/login');
+            return;
+          }
           if (response.status === 404) {
             console.warn('[Me] 404 /users/me -> fallback sur claims du token.');
             const rawToken = getToken();
@@ -80,11 +87,15 @@ export default function MeScreen() {
               return;
             }
           }
-          throw new Error('Erreur lors de la récupération des données utilisateur');
+          // Autres erreurs - redirection silencieuse
+          await clearToken();
+          router.replace('/login');
+          return;
         }
       } catch (error) {
-        console.error('Erreur réseau ou API:', error);
-        router.push('/login');
+        console.log('[Me] Erreur réseau, redirection vers login');
+        await clearToken();
+        router.replace('/login');
       } finally {
         setLoading(false);
       }

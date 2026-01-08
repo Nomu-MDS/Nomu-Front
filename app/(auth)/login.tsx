@@ -1,101 +1,133 @@
+import { Link, useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
+
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { API_BASE_URL } from '@/constants/config';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { setToken } from '@/lib/session';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 export default function LoginScreen() {
+  const router = useRouter();
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = Colors[colorScheme];
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const emailValid = /\S+@\S+\.\S+/.test(email);
+  const formValid = emailValid && password.length >= 6;
 
   const handleLogin = async () => {
+    if (!formValid || isLoading) return;
+
+    setIsLoading(true);
     try {
-      console.log('[Login] Utilisation API_BASE_URL =', API_BASE_URL);
-      const url = `${API_BASE_URL}/auth/login`;
-      console.log('[Login] Requête POST ->', url);
-      const response = await fetch(url, {
+      console.log('[Login] Connexion en cours...');
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ email, password }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
       });
-      console.log('Login status:', response.status);
-      console.log('Login headers content-type:', response.headers.get('content-type'));
+
       if (!response.ok) {
-        const text = await response.text();
-        console.log('Login error body:', text);
-        throw new Error(text || 'Erreur de connexion');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Email ou mot de passe incorrect');
       }
-      let data: any = null;
-      const contentType = response.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
-        data = await response.json();
-      } else {
-        const text = await response.text();
-        try {
-          data = JSON.parse(text);
-        } catch {
-          data = { raw: text };
-        }
-      }
-      console.log('Login response payload:', data);
-      const authHeader = response.headers.get('authorization') || response.headers.get('Authorization') || '';
-      const headerToken = authHeader?.toLowerCase().startsWith('bearer ')
-        ? authHeader.slice(7)
-        : undefined;
-      const receivedToken =
-        headerToken ||
-        data?.token ||
-        data?.idToken ||
-        data?.access_token ||
-        data?.jwt ||
-        data?.data?.token ||
-        data?.data?.idToken ||
-        data?.data?.access_token;
-      if (!receivedToken) {
+
+      const data = await response.json();
+      const token = data.idToken || data.token || data.access_token;
+
+      if (!token) {
         throw new Error('Token manquant dans la réponse');
       }
-      await setToken(receivedToken);
-      console.log('Stored token (idToken/access_token) persisted:', !!receivedToken);
-      // Rediriger vers l'écran profil dans les tabs pour conserver la barre de navigation
-      router.push('/profile');
+
+      await setToken(token);
+      console.log('[Login] Connexion réussie');
+      router.replace('/profile');
+
     } catch (err: any) {
-      console.error('Login error:', err);
-      Alert.alert('Connexion échouée', err?.message || 'Veuillez réessayer');
+      console.error('[Login] Erreur:', err);
+      Alert.alert('Connexion échouée', err.message || 'Veuillez réessayer');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <ThemedView style={styles.screen}>
-      <View style={styles.card}>
-        <ThemedText type="title" style={styles.title}>Se connecter</ThemedText>
-        <ThemedText style={[styles.subtitle, styles.textDark]}>Retrouvez vos recommandations Nomu en quelques secondes.</ThemedText>
+      <View style={[styles.card, { backgroundColor: theme.surface }]}>
+        {/* Titre */}
+        <View style={styles.titleSection}>
+          <ThemedText type="title" style={styles.title}>
+            Bon retour ! 👋
+          </ThemedText>
+          <ThemedText style={[styles.subtitle, { color: theme.icon }]}>
+            Connectez-vous pour retrouver vos recommandations Nomu
+          </ThemedText>
+        </View>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Mot de passe"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+        {/* Formulaire */}
+        <View style={styles.form}>
+          <Input
+            label="Email"
+            placeholder="email@exemple.com"
+            value={email}
+            onChangeText={setEmail}
+            type="email"
+            autoCapitalize="none"
+            autoCorrect={false}
+            helperText={email.length > 0 && !emailValid ? 'Entrez un email valide' : undefined}
+          />
+          <Input
+            label="Mot de passe"
+            placeholder="********"
+            value={password}
+            onChangeText={setPassword}
+            type="password"
+            helperText={password.length > 0 && password.length < 6 ? 'Minimum 6 caractères' : undefined}
+          />
 
-        <Pressable style={styles.primaryButton} onPress={handleLogin}>
-          <ThemedText style={styles.primaryButtonText}>Continuer</ThemedText>
-        </Pressable>
+          <Pressable style={styles.forgotPassword} hitSlop={8}>
+            <ThemedText style={[styles.forgotPasswordText, { color: theme.primary }]}>
+              Mot de passe oublié ?
+            </ThemedText>
+          </Pressable>
+        </View>
 
-        <View style={styles.footerRow}>
-          <ThemedText style={styles.textDark}>Pas encore de compte ?</ThemedText>
-          <ThemedText type="link" style={styles.textDark}> Inscription</ThemedText>
+        {/* Bouton connexion */}
+        <View style={styles.actions}>
+          <Button
+            label={isLoading ? 'Connexion...' : 'Se connecter'}
+            onPress={handleLogin}
+            disabled={!formValid || isLoading}
+          />
+        </View>
+
+        {/* Séparateur */}
+        <View style={styles.separatorRow}>
+          <View style={[styles.separatorLine, { backgroundColor: theme.border }]} />
+          <ThemedText style={[styles.separatorText, { color: theme.icon }]}>ou</ThemedText>
+          <View style={[styles.separatorLine, { backgroundColor: theme.border }]} />
+        </View>
+
+        {/* Lien inscription */}
+        <View style={styles.footer}>
+          <ThemedText style={{ color: theme.icon }}>
+            Pas encore de compte ?
+          </ThemedText>
+          <Link href="/signup" asChild>
+            <Pressable hitSlop={8}>
+              <ThemedText style={[styles.signupLink, { color: theme.primary }]}>
+                Créer un compte
+              </ThemedText>
+            </Pressable>
+          </Link>
         </View>
       </View>
     </ThemedView>
@@ -106,58 +138,67 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: '#f5f7fb',
+    padding: 20,
   },
   card: {
-    width: '100%',
-    maxWidth: 420,
     borderRadius: 24,
     padding: 24,
-    backgroundColor: '#ffffff',
+    gap: 20,
     shadowColor: '#000',
     shadowOpacity: 0.08,
-    shadowRadius: 12,
+    shadowRadius: 16,
     shadowOffset: { width: 0, height: 4 },
-    gap: 12,
+    elevation: 4,
   },
-  title: {
-    color: '#000000',
-  },
-  subtitle: {
-    opacity: 0.7,
-    marginBottom: 8,
-  },
-  input: {
-    width: '100%',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: '#d0d4dd',
-    borderRadius: 12,
-    backgroundColor: '#f9fafc',
-  },
-  primaryButton: {
-    marginTop: 8,
-    borderRadius: 999,
-    backgroundColor: '#111827',
-    paddingVertical: 12,
+  titleSection: {
+    gap: 8,
     alignItems: 'center',
   },
-  primaryButtonText: {
-    color: '#ffffff',
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  form: {
+    gap: 16,
+    marginTop: 8,
+  },
+  forgotPassword: {
+    alignSelf: 'flex-end',
+  },
+  forgotPasswordText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  actions: {
+    marginTop: 8,
+  },
+  separatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  separatorLine: {
+    flex: 1,
+    height: 1,
+  },
+  separatorText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  signupLink: {
+    fontSize: 15,
     fontWeight: '600',
   },
-  footerRow: {
-    marginTop: 8,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  textDark: {
-    color: '#000000',
-  },
 });
-
-
