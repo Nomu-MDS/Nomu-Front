@@ -19,6 +19,7 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useDebounce } from '@/hooks/use-debounce';
 import { getToken } from '@/lib/session';
+import { useRouter } from 'expo-router';
 
 interface Interest {
   id: number;
@@ -103,7 +104,8 @@ export default function ExploreScreen() {
         console.log('[Search] Résultats:', data.hits.length);
         setResults(data.hits);
       } else {
-        console.error('[Search] Erreur:', response.status);
+        const errorText = await response.text();
+        console.error('[Search] Erreur:', response.status, errorText);
         setResults([]);
       }
     } catch (error) {
@@ -141,16 +143,16 @@ export default function ExploreScreen() {
     setSelectedInterests([]);
   }, []);
 
+  const router = useRouter();
   // Render item pour FlatList
   const renderItem = useCallback(({ item }: { item: ProfileHit }) => (
     <ProfileCard
       profile={item}
       onPress={() => {
-        // TODO: Naviguer vers le profil détaillé
-        console.log('Profil sélectionné:', item.id);
+        router.push(`/user-profile?id=${item.user_id}`);
       }}
     />
-  ), []);
+  ), [router]);
 
   // Key extractor
   const keyExtractor = useCallback((item: ProfileHit) => item.id.toString(), []);
