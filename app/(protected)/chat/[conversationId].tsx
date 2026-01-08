@@ -252,12 +252,16 @@ export default function ChatScreen() {
           ref={flatListRef}
           data={messages}
           keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <MessageBubble
-              message={item}
-              isCurrentUser={item.user_id === currentUserId}
-            />
-          )}
+          renderItem={({ item }) => {
+            const isCurrentUserMessage = item.user_id === currentUserId;
+            console.log('[Chat] Message ID:', item.id, '| user_id:', item.user_id, '| currentUserId:', currentUserId, '| isCurrentUser:', isCurrentUserMessage);
+            return (
+              <MessageBubble
+                message={item}
+                isCurrentUser={isCurrentUserMessage}
+              />
+            );
+          }}
           contentContainerStyle={styles.messagesList}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
           onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
