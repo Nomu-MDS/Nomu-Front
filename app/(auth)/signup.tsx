@@ -1,18 +1,26 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
 import { FilterBadge } from '@/components/ui/filter-badge';
 import { Input } from '@/components/ui/input';
+import { API_BASE_URL } from '@/constants/config';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { setToken } from '@/lib/session';
 
-const HOBBIES = ['Sport', 'Music', 'Travel', 'Food', 'Tech', 'Art'];
+// Type pour les intérêts du backend
+interface Interest {
+  id: number;
+  name: string;
+  icon: string | null;
+  is_active: boolean;
+}
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -28,29 +36,53 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
-  const [hobbies, setHobbies] = useState<string[]>([]);
+  const [selectedInterestIds, setSelectedInterestIds] = useState<number[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Intérêts chargés depuis l'API
+  const [interests, setInterests] = useState<Interest[]>([]);
+  const [loadingInterests, setLoadingInterests] = useState(true);
+
+  // Charger les intérêts au montage
+  useEffect(() => {
+    const fetchInterests = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/interests`);
+        if (response.ok) {
+          const data = await response.json();
+          setInterests(data);
+        }
+      } catch (err) {
+        console.error('Erreur chargement intérêts:', err);
+      } finally {
+        setLoadingInterests(false);
+      }
+    };
+    fetchInterests();
+  }, []);
 
   const emailValid = /\S+@\S+\.\S+/.test(email);
   const firstNameValid = firstName.trim().length >= 2;
   const lastNameValid = lastName.trim().length >= 2;
   const passwordMismatch = passwordConfirm.length > 0 && password !== passwordConfirm;
+  const passwordValid = password.length >= 6;
 
   const step1Valid =
     emailValid &&
-    password.length > 0 &&
+    passwordValid &&
     passwordConfirm.length > 0 &&
     !passwordMismatch &&
     firstNameValid &&
     lastNameValid;
 
   const step2Valid = avatarUrl.trim().length > 0;
-  const step3Valid = hobbies.length > 0;
+  const step3Valid = selectedInterestIds.length > 0;
 
   const progress = useMemo(() => (step / totalSteps) * 100, [step, totalSteps]);
 
-  const toggleHobby = (label: string) => {
-    setHobbies((prev) =>
-      prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label],
+  const toggleInterest = (interestId: number) => {
+    setSelectedInterestIds((prev) =>
+      prev.includes(interestId) ? prev.filter((id) => id !== interestId) : [...prev, interestId],
     );
   };
 
@@ -125,11 +157,90 @@ export default function SignupScreen() {
     goBack();
   };
 
-  const handleSubmit = () => {
-    if (!step3Valid) return;
-    // TODO: connecter l'API d'inscription
-    console.log({ email, firstName, lastName, avatarUrl, hobbies });
-    router.push('/login');
+  const handleSubmit = async () => {
+    if (!step3Valid || isSubmitting) return;
+
+    setIsSubmitting(true);
+    const trimmedEmail = email.trim().toLowerCase();
+    
+    try {
+      // 1. Créer l'utilisateur via /auth/signup
+      const signupResponse = await fetch(`${API_BASE_URL}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${firstName.trim()} ${lastName.trim()}`,
+          email: trimmedEmail,
+          password,
+          is_searchable: true, // Visible par défaut
+        }),
+      });
+
+      if (!signupResponse.ok) {
+        const errorData = await signupResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Erreur lors de la création du compte');
+      }
+
+      const signupData = await signupResponse.json();
+      console.log('[Signup] Compte créé:', signupData.user?.email);
+
+      // 2. Auto-login pour obtenir un idToken valide
+      const loginResponse = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmedEmail, password }),
+      });
+
+      if (!loginResponse.ok) {
+        throw new Error('Compte créé mais erreur lors de la connexion automatique');
+      }
+
+      const loginData = await loginResponse.json();
+      const idToken = loginData.idToken;
+      
+      if (!idToken) {
+        throw new Error('Token manquant dans la réponse de login');
+      }
+
+      await setToken(idToken);
+      console.log('[Signup] Auto-login réussi, token stocké');
+
+      // 3. Mettre à jour le profil avec les intérêts sélectionnés
+      if (selectedInterestIds.length > 0) {
+        try {
+          const profileResponse = await fetch(`${API_BASE_URL}/users/profile`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({
+              first_name: firstName.trim(),
+              last_name: lastName.trim(),
+              interest_ids: selectedInterestIds,
+            }),
+          });
+
+          if (profileResponse.ok) {
+            console.log('[Signup] Profil mis à jour avec les intérêts');
+          } else {
+            console.warn('[Signup] Erreur mise à jour profil (non bloquant)');
+          }
+        } catch (profileErr) {
+          console.warn('[Signup] Erreur mise à jour profil:', profileErr);
+          // Non bloquant, on continue
+        }
+      }
+
+      // 4. Rediriger vers le profil
+      router.replace('/profile');
+
+    } catch (err: any) {
+      console.error('[Signup] Erreur:', err);
+      Alert.alert('Erreur', err.message || 'Une erreur est survenue lors de l\'inscription');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -204,7 +315,13 @@ export default function SignupScreen() {
                 value={password}
                 onChangeText={setPassword}
                 type="password"
-                helperText={passwordMismatch ? 'Les mots de passe doivent correspondre' : undefined}
+                helperText={
+                  password.length > 0 && !passwordValid
+                    ? 'Minimum 6 caractères'
+                    : passwordMismatch
+                      ? 'Les mots de passe doivent correspondre'
+                      : undefined
+                }
               />
               <Input
                 label="Confirmer le mot de passe"
@@ -240,17 +357,25 @@ export default function SignupScreen() {
 
           {step === 3 ? (
             <View style={styles.section}>
-              <ThemedText style={styles.sectionTitle}>Choisissez vos hobbies</ThemedText>
-              <View style={styles.badgesRow}>
-                {HOBBIES.map((hobby) => (
-                  <FilterBadge
-                    key={hobby}
-                    label={hobby}
-                    selected={hobbies.includes(hobby)}
-                    onPress={() => toggleHobby(hobby)}
-                  />
-                ))}
-              </View>
+              <ThemedText style={styles.sectionTitle}>Choisissez vos centres d'intérêt</ThemedText>
+              {loadingInterests ? (
+                <ActivityIndicator size="small" color={theme.primary} />
+              ) : interests.length > 0 ? (
+                <View style={styles.badgesRow}>
+                  {interests.map((interest) => (
+                    <FilterBadge
+                      key={interest.id}
+                      label={interest.name}
+                      selected={selectedInterestIds.includes(interest.id)}
+                      onPress={() => toggleInterest(interest.id)}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <ThemedText style={styles.noInterests}>
+                  Aucun centre d'intérêt disponible
+                </ThemedText>
+              )}
             </View>
           ) : null}
         </ScrollView>
@@ -263,7 +388,11 @@ export default function SignupScreen() {
               disabled={(step === 1 && !step1Valid) || (step === 2 && !step2Valid)}
             />
           ) : (
-            <Button label="Terminer" onPress={handleSubmit} disabled={!step3Valid} />
+            <Button
+              label={isSubmitting ? 'Création...' : 'Terminer'}
+              onPress={handleSubmit}
+              disabled={!step3Valid || isSubmitting}
+            />
           )}
         </View>
       </View>
@@ -362,6 +491,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+  },
+  noInterests: {
+    opacity: 0.6,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 16,
   },
   actionsRow: {
     flexDirection: 'row',
