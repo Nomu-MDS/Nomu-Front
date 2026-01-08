@@ -1,13 +1,15 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/ui/button';
 import { API_BASE_URL } from '@/constants/config';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { startConversation } from '@/lib/chat-helper';
 import { getToken } from '@/lib/session';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 interface Interest {
   id: number;
@@ -36,6 +38,7 @@ export default function UserProfileScreen() {
   const [userProfile, setUserProfile] = useState<UserProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [contactLoading, setContactLoading] = useState(false);
   const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = Colors[colorScheme];
@@ -108,6 +111,34 @@ export default function UserProfileScreen() {
 
   const handleGoBack = () => {
     router.back();
+  };
+
+  const handleContactUser = async () => {
+    if (!userProfile) return;
+
+    setContactLoading(true);
+    try {
+      console.log('[UserProfile] Démarrage conversation avec user ID:', userProfile.id);
+      const conversationId = await startConversation(userProfile.id);
+      console.log('[UserProfile] Conversation créée/récupérée:', conversationId);
+      router.push(`/chat/${conversationId}`);
+    } catch (error: any) {
+      console.error('[UserProfile] Erreur:', error);
+
+      if (error.message.includes('Only travelers')) {
+        Alert.alert(
+          'Non autorisé',
+          'Seuls les voyageurs peuvent initier des conversations avec les locaux.'
+        );
+      } else if (error.message.includes('Token manquant')) {
+        Alert.alert('Non connecté', 'Vous devez être connecté pour envoyer des messages');
+        router.push('/login');
+      } else {
+        Alert.alert('Erreur', error.message || 'Impossible de démarrer la conversation');
+      }
+    } finally {
+      setContactLoading(false);
+    }
   };
 
   if (loading) {
@@ -249,6 +280,15 @@ export default function UserProfileScreen() {
             </View>
           </View>
         )}
+
+        {/* Bouton Contacter */}
+        <View style={styles.contactButtonContainer}>
+          <Button
+            label={contactLoading ? 'Chargement...' : 'Envoyer un message'}
+            onPress={handleContactUser}
+            disabled={contactLoading}
+          />
+        </View>
       </ScrollView>
     </ThemedView>
   );
@@ -370,5 +410,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 15,
+  },
+  contactButtonContainer: {
+    marginTop: 8,
   },
 });
