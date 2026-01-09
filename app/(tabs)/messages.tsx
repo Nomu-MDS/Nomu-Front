@@ -1,6 +1,6 @@
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, Image, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { ThemedText } from '@/components/themed-text';
@@ -10,7 +10,8 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getConversations } from '@/services/api/conversations';
 import { getToken } from '@/lib/session';
 import { decodeJwt } from '@/lib/jwt';
-import type { Conversation } from '@/types/message';
+import { connectSocket, getSocket } from '@/services/socket';
+import type { Conversation, Message } from '@/types/message';
 
 export default function MessagesScreen() {
   const router = useRouter();
@@ -22,13 +23,16 @@ export default function MessagesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const currentUserIdRef = useRef<number | null>(null);
 
   // Charger les conversations
-  const loadConversations = async (isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
+  const loadConversations = async (isRefresh = false, silent = false) => {
+    if (!silent) {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
     }
     setError(null);
 
@@ -54,28 +58,126 @@ export default function MessagesScreen() {
       console.log('[Messages] Conversations chargées:', convList.length);
 
       // Déterminer l'ID utilisateur depuis la première conversation si disponible
-      if (convList.length > 0 && !currentUserId) {
+      if (convList.length > 0) {
         const firstConv = convList[0];
+        let userId: number | null = null;
         if (firstConv.Voyager.firebase_uid === firebaseUid) {
-          setCurrentUserId(firstConv.Voyager.id);
+          userId = firstConv.Voyager.id;
         } else if (firstConv.Local.firebase_uid === firebaseUid) {
-          setCurrentUserId(firstConv.Local.id);
+          userId = firstConv.Local.id;
+        }
+        if (userId) {
+          setCurrentUserId(userId);
+          currentUserIdRef.current = userId;
         }
       }
 
       setConversations(convList);
     } catch (err: any) {
       console.error('[Messages] Erreur chargement:', err);
-      setError(err.message || 'Impossible de charger les conversations');
+      if (!silent) {
+        setError(err.message || 'Impossible de charger les conversations');
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!silent) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   };
 
-  useEffect(() => {
-    loadConversations();
+  // Configurer le socket pour la première conversation
+  const setupSocket = useCallback((firstConvId: number) => {
+    const token = getToken();
+    if (!token) return;
+
+    connectSocket(token);
+    const socket = getSocket();
+    if (!socket) return;
+
+    console.log('[Messages] Socket connecté, rejoindre conversation:', firstConvId);
+    socket.emit('join_conversation', { conversation_id: firstConvId });
+
+    // Écouter les nouveaux messages
+    socket.on('new_message', (data: { message: Message; conversation_id: number }) => {
+      console.log('[Messages] Nouveau message reçu:', data);
+      // Recharger les conversations silencieusement
+      loadConversations(true, true);
+    });
+
+    // Écouter les messages lus
+    socket.on('message_read_update', () => {
+      console.log('[Messages] Message lu, refresh...');
+      loadConversations(true, true);
+    });
+
+    return () => {
+      socket.off('new_message');
+      socket.off('message_read_update');
+    };
   }, []);
+
+  // Initialiser l'écran au focus
+  useFocusEffect(
+    useCallback(() => {
+      let cleanup: (() => void) | undefined;
+
+      const init = async () => {
+        try {
+          const token = getToken();
+          if (!token) {
+            setError('Vous devez être connecté');
+            router.replace('/login');
+            return;
+          }
+
+          const claims = decodeJwt(token);
+          const firebaseUid = claims?.user_id || claims?.sub;
+
+          if (!firebaseUid) {
+            setError('Impossible de récupérer votre identifiant');
+            return;
+          }
+
+          const { conversations: convList } = await getConversations();
+          console.log('[Messages] Conversations chargées:', convList.length);
+
+          // Déterminer l'ID utilisateur
+          if (convList.length > 0) {
+            const firstConv = convList[0];
+            let userId: number | null = null;
+            if (firstConv.Voyager.firebase_uid === firebaseUid) {
+              userId = firstConv.Voyager.id;
+            } else if (firstConv.Local.firebase_uid === firebaseUid) {
+              userId = firstConv.Local.id;
+            }
+            if (userId) {
+              setCurrentUserId(userId);
+              currentUserIdRef.current = userId;
+            }
+
+            // Configurer le socket avec la première conversation
+            cleanup = setupSocket(firstConv.id);
+          }
+
+          setConversations(convList);
+          setLoading(false);
+          setRefreshing(false);
+        } catch (err: any) {
+          console.error('[Messages] Erreur:', err);
+          setError(err.message || 'Impossible de charger les conversations');
+          setLoading(false);
+          setRefreshing(false);
+        }
+      };
+
+      init();
+
+      return () => {
+        if (cleanup) cleanup();
+      };
+    }, [setupSocket, router])
+  );
 
   const handleRefresh = () => {
     loadConversations(true);
@@ -319,12 +421,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 6,
   },
   badgeText: {
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
+    lineHeight: 20,
   },
   conversationContent: {
     flex: 1,

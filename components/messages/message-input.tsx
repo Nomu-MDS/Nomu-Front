@@ -1,7 +1,7 @@
 // Composant pour la zone de saisie des messages
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -20,17 +20,27 @@ export function MessageInput({ onSendMessage, onTyping, disabled = false }: Mess
 
   const [message, setMessage] = useState('');
   const [attachment, setAttachment] = useState<string | null>(null);
-  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleTextChange = (text: string) => {
     setMessage(text);
 
-    // Gérer l'indicateur de frappe
-    if (text.length > 0 && !isTyping) {
-      setIsTyping(true);
+    // Clear le timeout précédent
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+
+    if (text.length > 0) {
+      // Envoyer typing true à chaque frappe
       onTyping(true);
-    } else if (text.length === 0 && isTyping) {
-      setIsTyping(false);
+
+      // Auto-stop après 2 secondes d'inactivité
+      typingTimeoutRef.current = setTimeout(() => {
+        onTyping(false);
+      }, 2000);
+    } else {
+      // Texte vide = stop typing immédiat
       onTyping(false);
     }
   };
@@ -38,10 +48,15 @@ export function MessageInput({ onSendMessage, onTyping, disabled = false }: Mess
   const handleSend = () => {
     if ((!message.trim() && !attachment) || disabled) return;
 
+    // Clear le timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+
     onSendMessage(message.trim(), attachment);
     setMessage('');
     setAttachment(null);
-    setIsTyping(false);
     onTyping(false);
   };
 

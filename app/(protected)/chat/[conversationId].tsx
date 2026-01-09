@@ -93,7 +93,8 @@ export default function ChatScreen() {
 
         // Charger l'historique des messages
         const { messages: messageHistory } = await getMessages(conversationId);
-        setMessages(messageHistory.reverse()); // Du plus ancien au plus récent
+        const sortedMessages = messageHistory.reverse(); // Du plus ancien au plus récent
+        setMessages(sortedMessages);
 
         // Connecter le WebSocket
         connectSocket(token);
@@ -104,6 +105,16 @@ export default function ChatScreen() {
 
         // Rejoindre la conversation
         socket.emit('join_conversation', { conversation_id: conversationId });
+
+        // Marquer tous les messages non lus de l'autre utilisateur comme lus
+        const unreadMessages = sortedMessages.filter(
+          (msg) => !msg.read && msg.user_id !== userId
+        );
+        console.log('[Chat] Messages non lus à marquer:', unreadMessages.length);
+        unreadMessages.forEach((msg) => {
+          console.log('[Chat] Marquage message existant comme lu:', msg.id);
+          socket.emit('message_read', { message_id: msg.id });
+        });
 
         // Écouter les événements
         socket.on('joined_conversation', (data) => {
@@ -131,16 +142,19 @@ export default function ChatScreen() {
         });
 
         socket.on('user_typing', (data) => {
-          console.log('[Chat] User typing', data);
-          if (data.userId !== userId) {
+          console.log('[Chat] User typing', data, 'currentUserId:', currentUserIdRef.current);
+          if (data.userId !== currentUserIdRef.current) {
+            // Toujours clear le timeout précédent
+            if (typingTimeoutRef.current) {
+              clearTimeout(typingTimeoutRef.current);
+              typingTimeoutRef.current = null;
+            }
+
             setIsOtherUserTyping(data.isTyping);
             setOtherUserTypingName(data.userName);
 
-            // Auto-clear après 3 secondes
+            // Auto-clear après 3 secondes seulement si isTyping est true
             if (data.isTyping) {
-              if (typingTimeoutRef.current) {
-                clearTimeout(typingTimeoutRef.current);
-              }
               typingTimeoutRef.current = setTimeout(() => {
                 setIsOtherUserTyping(false);
               }, 3000);
