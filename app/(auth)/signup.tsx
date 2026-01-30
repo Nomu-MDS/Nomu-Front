@@ -196,13 +196,13 @@ export default function SignupScreen() {
       }
 
       const loginData = await loginResponse.json();
-      const idToken = loginData.idToken;
-      
-      if (!idToken) {
+      const token = loginData.token || loginData.idToken || loginData.access_token;
+
+      if (!token) {
         throw new Error('Token manquant dans la réponse de login');
       }
 
-      await setToken(idToken);
+      await setToken(token);
       console.log('[Signup] Auto-login réussi, token stocké');
 
       // 3. Mettre à jour le profil avec les intérêts sélectionnés
@@ -212,7 +212,7 @@ export default function SignupScreen() {
             method: 'PATCH',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${idToken}`,
+              Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
               first_name: firstName.trim(),
