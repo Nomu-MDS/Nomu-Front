@@ -44,11 +44,11 @@ export default function MessagesScreen() {
         return;
       }
 
-      // Récupérer l'ID utilisateur depuis le token
+      // Récupérer l'ID utilisateur depuis le token (supporte plusieurs clés possibles)
       const claims = decodeJwt(token);
-      const firebaseUid = claims?.user_id || claims?.sub;
+      const currentUserIdFromToken = claims?.id || claims?.userId || claims?.sub || claims?.user_id;
 
-      if (!firebaseUid) {
+      if (!currentUserIdFromToken) {
         setError('Impossible de récupérer votre identifiant');
         return;
       }
@@ -61,9 +61,10 @@ export default function MessagesScreen() {
       if (convList.length > 0) {
         const firstConv = convList[0];
         let userId: number | null = null;
-        if (firstConv.Voyager.firebase_uid === firebaseUid) {
+        // Comparer via les IDs exposés par l'API (pas firebase_uid)
+        if (firstConv.Voyager?.id === currentUserIdFromToken) {
           userId = firstConv.Voyager.id;
-        } else if (firstConv.Local.firebase_uid === firebaseUid) {
+        } else if (firstConv.Local?.id === currentUserIdFromToken) {
           userId = firstConv.Local.id;
         }
         if (userId) {
@@ -132,9 +133,9 @@ export default function MessagesScreen() {
           }
 
           const claims = decodeJwt(token);
-          const firebaseUid = claims?.user_id || claims?.sub;
+          const currentUserIdFromToken = claims?.id || claims?.userId || claims?.sub || claims?.user_id;
 
-          if (!firebaseUid) {
+          if (!currentUserIdFromToken) {
             setError('Impossible de récupérer votre identifiant');
             return;
           }
@@ -146,9 +147,9 @@ export default function MessagesScreen() {
           if (convList.length > 0) {
             const firstConv = convList[0];
             let userId: number | null = null;
-            if (firstConv.Voyager.firebase_uid === firebaseUid) {
+            if (firstConv.Voyager?.id === currentUserIdFromToken) {
               userId = firstConv.Voyager.id;
-            } else if (firstConv.Local.firebase_uid === firebaseUid) {
+            } else if (firstConv.Local?.id === currentUserIdFromToken) {
               userId = firstConv.Local.id;
             }
             if (userId) {

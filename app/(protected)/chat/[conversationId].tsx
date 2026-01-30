@@ -60,22 +60,22 @@ export default function ChatScreen() {
         const { conversation } = await getConversation(conversationId);
         console.log('[Chat] Conversation chargée:', conversation);
 
-        // Récupérer l'ID utilisateur depuis le token Firebase
+        // Récupérer l'ID utilisateur depuis le token (supporte plusieurs clés possibles)
         const claims = decodeJwt(token);
-        const firebaseUid = claims?.user_id || claims?.sub;
+        const userIdFromToken = claims?.id || claims?.userId || claims?.sub || claims?.user_id;
 
-        if (!firebaseUid) {
-          throw new Error('Firebase UID introuvable dans le token');
+        if (!userIdFromToken) {
+          throw new Error('Identifiant utilisateur introuvable dans le token');
         }
 
-        console.log('[Chat] Firebase UID:', firebaseUid);
+        console.log('[Chat] User ID:', userIdFromToken);
 
-        // Déterminer l'ID utilisateur en BDD en comparant le firebase_uid
+        // Déterminer l'ID utilisateur en BDD en comparant les IDs exposés par l'API
         let userId: number;
-        if (conversation.Voyager.firebase_uid === firebaseUid) {
+        if (conversation.Voyager?.id === userIdFromToken) {
           userId = conversation.Voyager.id;
           console.log('[Chat] Utilisateur = Voyager (ID:', userId, ')');
-        } else if (conversation.Local.firebase_uid === firebaseUid) {
+        } else if (conversation.Local?.id === userIdFromToken) {
           userId = conversation.Local.id;
           console.log('[Chat] Utilisateur = Local (ID:', userId, ')');
         } else {

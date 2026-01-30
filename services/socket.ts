@@ -6,9 +6,9 @@ import { API_BASE_URL } from '@/constants/config';
 let socket: Socket | null = null;
 
 /**
- * Connecte le socket WebSocket avec authentification Firebase
+ * Connecte le socket WebSocket avec authentification (JWT ou session)
  */
-export function connectSocket(firebaseToken: string): Socket {
+export function connectSocket(token: string): Socket {
   if (socket?.connected) {
     console.log('[Socket] Déjà connecté');
     return socket;
@@ -21,7 +21,7 @@ export function connectSocket(firebaseToken: string): Socket {
 
   socket = io(socketUrl, {
     auth: {
-      token: firebaseToken,
+      token,
     },
     transports: ['websocket'],
     reconnection: true,
