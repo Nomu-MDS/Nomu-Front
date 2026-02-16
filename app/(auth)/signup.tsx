@@ -1,27 +1,27 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
-import { 
-  ActivityIndicator, 
-  Alert, 
-  Image, 
-  Pressable, 
-  ScrollView, 
-  StyleSheet, 
-  View,
-  Text,
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useFonts } from "expo-font";
+import * as ImagePicker from "expo-image-picker";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
   ImageBackground,
-  TextInput,
-  Platform,
   KeyboardAvoidingView,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useFonts } from 'expo-font';
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
-import { FilterBadge } from '@/components/ui/filter-badge';
-import { API_BASE_URL } from '@/constants/config';
-import { setToken } from '@/lib/session';
+import { FilterBadge } from "@/components/ui/filter-badge";
+import { API_BASE_URL } from "@/constants/config";
+import { setToken } from "@/lib/session";
 
 // Type pour les intérêts du backend
 interface Interest {
@@ -37,10 +37,10 @@ export default function SignupScreen() {
   const [step, setStep] = useState(1);
   const totalSteps = 3;
 
-  const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
+  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [selectedInterestIds, setSelectedInterestIds] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -49,7 +49,7 @@ export default function SignupScreen() {
   const [loadingInterests, setLoadingInterests] = useState(true);
 
   const [fontsLoaded] = useFonts({
-    'RocaOne-Bold': require('@/assets/fonts/roca/RocaOne-Bold.ttf'),
+    "RocaOne-Bold": require("@/assets/fonts/roca/RocaOne-Bold.ttf"),
   });
 
   // Charger les intérêts au montage
@@ -62,7 +62,7 @@ export default function SignupScreen() {
           setInterests(data);
         }
       } catch (err) {
-        console.error('Erreur chargement intérêts:', err);
+        console.error("Erreur chargement intérêts:", err);
       } finally {
         setLoadingInterests(false);
       }
@@ -82,32 +82,40 @@ export default function SignupScreen() {
 
   const toggleInterest = (interestId: number) => {
     setSelectedInterestIds((prev) =>
-      prev.includes(interestId) ? prev.filter((id) => id !== interestId) : [...prev, interestId],
+      prev.includes(interestId)
+        ? prev.filter((id) => id !== interestId)
+        : [...prev, interestId],
     );
   };
 
   const pickImageFromLibrary = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission requise', 'Autorisez l’accès à la galerie pour choisir une photo.');
+      Alert.alert(
+        "Permission requise",
+        "Autorisez l’accès à la galerie pour choisir une photo.",
+      );
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ["images"],
       allowsEditing: true,
       quality: 0.8,
     });
 
     if (!result.canceled && result.assets?.length) {
-      setAvatarUrl(result.assets[0]?.uri ?? '');
+      setAvatarUrl(result.assets[0]?.uri ?? "");
     }
   };
 
   const pickImageFromCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission requise', 'Autorisez l’accès à la caméra pour prendre une photo.');
+      Alert.alert(
+        "Permission requise",
+        "Autorisez l’accès à la caméra pour prendre une photo.",
+      );
       return;
     }
 
@@ -117,15 +125,15 @@ export default function SignupScreen() {
     });
 
     if (!result.canceled && result.assets?.length) {
-      setAvatarUrl(result.assets[0]?.uri ?? '');
+      setAvatarUrl(result.assets[0]?.uri ?? "");
     }
   };
 
   const pickImage = () => {
-    Alert.alert('Ajouter une photo', 'Choisissez une source', [
-      { text: 'Appareil photo', onPress: pickImageFromCamera },
-      { text: 'Galerie', onPress: pickImageFromLibrary },
-      { text: 'Annuler', style: 'cancel' },
+    Alert.alert("Ajouter une photo", "Choisissez une source", [
+      { text: "Appareil photo", onPress: pickImageFromCamera },
+      { text: "Galerie", onPress: pickImageFromLibrary },
+      { text: "Annuler", style: "cancel" },
     ]);
   };
 
@@ -139,11 +147,11 @@ export default function SignupScreen() {
 
   const confirmExit = () => {
     Alert.alert(
-      'Quitter l’inscription ?',
-      'Vous allez revenir à l’écran précédent.',
+      "Quitter l’inscription ?",
+      "Vous allez revenir à l’écran précédent.",
       [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Quitter', style: 'destructive', onPress: () => router.back() },
+        { text: "Annuler", style: "cancel" },
+        { text: "Quitter", style: "destructive", onPress: () => router.back() },
       ],
     );
   };
@@ -153,12 +161,12 @@ export default function SignupScreen() {
 
     setIsSubmitting(true);
     const trimmedEmail = email.trim().toLowerCase();
-    
+
     try {
       // 1. Créer l'utilisateur via /auth/signup
       const signupResponse = await fetch(`${API_BASE_URL}/auth/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: username.trim(),
           email: trimmedEmail,
@@ -169,40 +177,45 @@ export default function SignupScreen() {
 
       if (!signupResponse.ok) {
         const errorData = await signupResponse.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Erreur lors de la création du compte');
+        throw new Error(
+          errorData.error || "Erreur lors de la création du compte",
+        );
       }
 
       const signupData = await signupResponse.json();
-      console.log('[Signup] Compte créé:', signupData.user?.email);
+      console.log("[Signup] Compte créé:", signupData.user?.email);
 
       // 2. Auto-login pour obtenir un idToken valide
       const loginResponse = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: trimmedEmail, password }),
       });
 
       if (!loginResponse.ok) {
-        throw new Error('Compte créé mais erreur lors de la connexion automatique');
+        throw new Error(
+          "Compte créé mais erreur lors de la connexion automatique",
+        );
       }
 
       const loginData = await loginResponse.json();
-      const token = loginData.token || loginData.idToken || loginData.access_token;
+      const token =
+        loginData.token || loginData.idToken || loginData.access_token;
 
       if (!token) {
-        throw new Error('Token manquant dans la réponse de login');
+        throw new Error("Token manquant dans la réponse de login");
       }
 
       await setToken(token);
-      console.log('[Signup] Auto-login réussi, token stocké');
+      console.log("[Signup] Auto-login réussi, token stocké");
 
       // 3. Mettre à jour le profil avec les intérêts sélectionnés
       if (selectedInterestIds.length > 0) {
         try {
           const profileResponse = await fetch(`${API_BASE_URL}/users/profile`, {
-            method: 'PATCH',
+            method: "PATCH",
             headers: {
-              'Content-Type': 'application/json',
+              "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
@@ -211,21 +224,23 @@ export default function SignupScreen() {
           });
 
           if (profileResponse.ok) {
-            console.log('[Signup] Profil mis à jour avec les intérêts');
+            console.log("[Signup] Profil mis à jour avec les intérêts");
           } else {
-            console.warn('[Signup] Erreur mise à jour profil (non bloquant)');
+            console.warn("[Signup] Erreur mise à jour profil (non bloquant)");
           }
         } catch (profileErr) {
-          console.warn('[Signup] Erreur mise à jour profil:', profileErr);
+          console.warn("[Signup] Erreur mise à jour profil:", profileErr);
         }
       }
 
       // 4. Rediriger vers le profil
-      router.replace('/profile');
-
+      router.replace("/profile");
     } catch (err: any) {
-      console.error('[Signup] Erreur:', err);
-      Alert.alert('Erreur', err.message || 'Une erreur est survenue lors de l\'inscription');
+      console.error("[Signup] Erreur:", err);
+      Alert.alert(
+        "Erreur",
+        err.message || "Une erreur est survenue lors de l'inscription",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -240,9 +255,9 @@ export default function SignupScreen() {
   }
 
   const getBackgroundImage = () => {
-    if (step === 1) return require('@/assets/images/register_background.png');
-    if (step === 2) return require('@/assets/images/pdp_page.jpg');
-    return require('@/assets/images/interets_page.jpg');
+    if (step === 1) return require("@/assets/images/register_background.png");
+    if (step === 2) return require("@/assets/images/pdp_page.jpg");
+    return require("@/assets/images/interets_page.jpg");
   };
 
   return (
@@ -253,7 +268,7 @@ export default function SignupScreen() {
       imageStyle={{ transform: [{ translateY: -100 }] }}
     >
       <LinearGradient
-        colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.85)', 'rgba(0,0,0,1)']}
+        colors={["rgba(0,0,0,0.3)", "rgba(0,0,0,0.85)", "rgba(0,0,0,1)"]}
         locations={[0, 0.5, 1]}
         style={styles.gradient}
       >
@@ -261,16 +276,14 @@ export default function SignupScreen() {
           {/* Barre de progression en haut */}
           <View style={styles.topBar}>
             <Pressable
-              onPress={() => step === 1 ? router.back() : setStep(step - 1)}
+              onPress={() => (step === 1 ? router.back() : setStep(step - 1))}
               hitSlop={12}
               style={styles.backButton}
             >
               <MaterialIcons name="arrow-back-ios" size={20} color="#E9E0D0" />
             </Pressable>
             <View style={styles.progressTrack}>
-              <View
-                style={[styles.progressFill, { width: `${progress}%` }]}
-              />
+              <View style={[styles.progressFill, { width: `${progress}%` }]} />
             </View>
             <Pressable
               onPress={() => router.back()}
@@ -282,20 +295,22 @@ export default function SignupScreen() {
           </View>
 
           {/* Contenu avec KeyboardAvoidingView */}
-          <KeyboardAvoidingView 
+          <KeyboardAvoidingView
             style={styles.contentWrapper}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
           >
-            <ScrollView 
+            <ScrollView
               style={styles.scrollView}
-              contentContainerStyle={step === 2 ? styles.scrollContentCenter : styles.scrollContent}
+              contentContainerStyle={
+                step === 2 ? styles.scrollContentCenter : styles.scrollContent
+              }
               keyboardShouldPersistTaps="handled"
             >
               {step === 1 && (
                 <View style={styles.formSection}>
                   <Text style={styles.title}>Create an account</Text>
-                  
+
                   <View style={styles.inputGroup}>
                     <TextInput
                       style={styles.input}
@@ -336,24 +351,30 @@ export default function SignupScreen() {
               {step === 2 && (
                 <View style={styles.formSection}>
                   <Text style={styles.title}>Create an account</Text>
-                  
-                  <Pressable
-                    style={styles.avatarContainer}
-                    onPress={pickImage}
-                  >
+
+                  <Pressable style={styles.avatarContainer} onPress={pickImage}>
                     <View style={styles.avatarCircle}>
                       {avatarUrl ? (
-                        <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+                        <Image
+                          source={{ uri: avatarUrl }}
+                          style={styles.avatarImage}
+                        />
                       ) : (
-                        <Text style={styles.avatarPlaceholder}>Add a photo</Text>
+                        <Text style={styles.avatarPlaceholder}>
+                          Add a photo
+                        </Text>
                       )}
                     </View>
                     <View style={styles.cameraBadge}>
-                      <MaterialIcons name="photo-camera" size={24} color="#000" />
+                      <MaterialIcons
+                        name="photo-camera"
+                        size={24}
+                        color="#000"
+                      />
                     </View>
                   </Pressable>
 
-                  <Pressable 
+                  <Pressable
                     onPress={() => setStep(step + 1)}
                     style={styles.skipButton}
                   >
@@ -365,7 +386,7 @@ export default function SignupScreen() {
               {step === 3 && (
                 <View style={styles.formSection}>
                   <Text style={styles.title}>Your Interests</Text>
-                  
+
                   {loadingInterests ? (
                     <ActivityIndicator size="small" color="#E9E0D0" />
                   ) : (
@@ -387,10 +408,11 @@ export default function SignupScreen() {
               <Pressable
                 style={[
                   styles.button,
-                  ((step === 1 && !step1Valid) || 
-                   (step === 2 && !step2Valid) || 
-                   (step === 3 && !step3Valid) ||
-                   isSubmitting) && styles.buttonDisabled
+                  ((step === 1 && !step1Valid) ||
+                    (step === 2 && !step2Valid) ||
+                    (step === 3 && !step3Valid) ||
+                    isSubmitting) &&
+                    styles.buttonDisabled,
                 ]}
                 onPress={() => {
                   if (step < totalSteps) {
@@ -400,14 +422,18 @@ export default function SignupScreen() {
                   }
                 }}
                 disabled={
-                  (step === 1 && !step1Valid) || 
-                  (step === 2 && !step2Valid) || 
+                  (step === 1 && !step1Valid) ||
+                  (step === 2 && !step2Valid) ||
                   (step === 3 && !step3Valid) ||
                   isSubmitting
                 }
               >
                 <Text style={styles.buttonText}>
-                  {step < totalSteps ? 'Next' : isSubmitting ? 'Creating...' : 'Finish'}
+                  {step < totalSteps
+                    ? "Next"
+                    : isSubmitting
+                      ? "Creating..."
+                      : "Finish"}
                 </Text>
               </Pressable>
             </ScrollView>
@@ -421,9 +447,9 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000",
   },
   screen: {
     flex: 1,
@@ -437,8 +463,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     paddingVertical: 10,
   },
@@ -452,13 +478,13 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 6,
     borderRadius: 999,
-    backgroundColor: 'rgba(70, 94, 138, 0.3)',
-    overflow: 'hidden',
+    backgroundColor: "rgba(70, 94, 138, 0.3)",
+    overflow: "hidden",
   },
   progressFill: {
-    height: '100%',
+    height: "100%",
     borderRadius: 999,
-    backgroundColor: '#465E8A',
+    backgroundColor: "#465E8A",
   },
   contentWrapper: {
     flex: 1,
@@ -468,40 +494,40 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
     paddingBottom: 20,
   },
   scrollContentCenter: {
     flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   formSection: {
     gap: 16,
   },
   title: {
     fontSize: 36,
-    fontFamily: 'RocaOne-Bold',
-    fontWeight: '700',
-    color: '#E9E0D0',
+    fontFamily: "RocaOne-Bold",
+    fontWeight: "700",
+    color: "#E9E0D0",
     marginBottom: 24,
   },
   inputGroup: {
     gap: 0,
   },
   input: {
-    backgroundColor: '#3C3C3B69',
+    backgroundColor: "#3C3C3B69",
     borderWidth: 1.5,
-    borderColor: '#465E8A',
+    borderColor: "#465E8A",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#E9E0D0',
+    color: "#E9E0D0",
   },
   avatarContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 20,
   },
   avatarCircle: {
@@ -509,59 +535,59 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 100,
     borderWidth: 2,
-    borderColor: '#465E8A',
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: "#465E8A",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   avatarImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   avatarPlaceholder: {
     fontSize: 16,
-    color: 'rgba(233, 224, 208, 0.6)',
+    color: "rgba(233, 224, 208, 0.6)",
   },
   skipButton: {
-    alignSelf: 'center',
+    alignSelf: "center",
     paddingVertical: 8,
     paddingHorizontal: 16,
     marginTop: 12,
   },
   skipText: {
     fontSize: 14,
-    color: 'rgba(233, 224, 208, 0.7)',
-    textDecorationLine: 'underline',
+    color: "rgba(233, 224, 208, 0.7)",
+    textDecorationLine: "underline",
   },
   cameraBadge: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 20,
-    right: '30%',
+    right: "30%",
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#E9E0D0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
+    backgroundColor: "#E9E0D0",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOpacity: 0.2,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
   interestsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12,
   },
   button: {
-    backgroundColor: '#E9E0D0',
+    backgroundColor: "#E9E0D0",
     borderRadius: 24,
     paddingVertical: 16,
     paddingHorizontal: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: 32,
   },
   buttonDisabled: {
@@ -569,9 +595,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#000',
+    fontWeight: "700",
+    color: "#000",
   },
 });
-
-

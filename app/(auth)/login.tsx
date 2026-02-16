@@ -1,13 +1,23 @@
-import { Link, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, ImageBackground, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Eye, EyeSlash } from 'phosphor-react-native';
-import { SvgXml } from 'react-native-svg';
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import { Eye, EyeSlash } from "phosphor-react-native";
+import { useState } from "react";
+import {
+    Alert,
+    ImageBackground,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
+} from "react-native";
+import { SvgXml } from "react-native-svg";
 
-import { API_BASE_URL } from '@/constants/config';
-import { setToken } from '@/lib/session';
+import { API_BASE_URL } from "@/constants/config";
+import { setToken } from "@/lib/session";
 
 const logoBlackSvg = `<svg width="272" height="54" viewBox="0 0 272 54" fill="none" xmlns="http://www.w3.org/2000/svg">
 <path d="M55.1 38.7C56.4 44.8 60.4 44 60.4 47.5C60.4 49.5 58.7 50 56 50H42C39.2 50 37.5 49.4 37.5 47.4C37.5 44.1 42.7 44.4 41.4 37.9L38.3 22.1C37.1 15.8 35.2 9.6 28.6 9.7C23.3 9.7 18.5 14.5 18.5 23.3V36.1C18.5 45.4 23.3 43.1 23.3 47.5C23.3 49.5 21.7 50 18.9 50H4.6C1.8 50 0 49.4 0 47.4C0 43.1 5 45.4 5 36.1V17.1C5 14.3 3.9 12.5 1.9 11C0.9 10.3 0 9.6 0 8.2C0 6.6 0.8 5.9 3.2 4.8C6.9 3 13.1 1.2 14.7 1.1C16.4 1.1 17.1 2.1 17.1 4.1V10.1C20.9 4.1 27 1 33.4 1C44.8 1 49.1 8.4 51.7 21.6L55.1 38.7Z" fill="#3C3C3B"/>
@@ -19,8 +29,8 @@ const logoBlackSvg = `<svg width="272" height="54" viewBox="0 0 272 54" fill="no
 export default function LoginScreen() {
   const router = useRouter();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -32,32 +42,31 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
-      console.log('[Login] Connexion en cours...');
+      console.log("[Login] Connexion en cours...");
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Email ou mot de passe incorrect');
+        throw new Error(errorData.error || "Email ou mot de passe incorrect");
       }
 
       const data = await response.json();
       const token = data.idToken || data.token || data.access_token;
 
       if (!token) {
-        throw new Error('Token manquant dans la réponse');
+        throw new Error("Token manquant dans la réponse");
       }
 
       await setToken(token);
-      console.log('[Login] Connexion réussie');
-      router.replace('/profile');
-
+      console.log("[Login] Connexion réussie");
+      router.replace("/profile");
     } catch (err: any) {
-      console.error('[Login] Erreur:', err);
-      Alert.alert('Connexion échouée', err.message || 'Veuillez réessayer');
+      console.error("[Login] Erreur:", err);
+      Alert.alert("Connexion échouée", err.message || "Veuillez réessayer");
     } finally {
       setIsLoading(false);
     }
@@ -65,101 +74,104 @@ export default function LoginScreen() {
 
   return (
     <ImageBackground
-      source={require('@/assets/images/login_page.png')}
+      source={require("@/assets/images/login_page.png")}
       style={styles.background}
       resizeMode="cover"
     >
       <LinearGradient
-        colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,1)']}
+        colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.5)", "rgba(0,0,0,1)"]}
         locations={[0, 0.4, 1]}
         style={styles.gradient}
       >
         <KeyboardAvoidingView
           style={styles.container}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
           {/* Logo */}
           <View style={styles.logoContainer}>
-          <SvgXml xml={logoBlackSvg} width="80%" height={60} />
-        </View>
+            <SvgXml xml={logoBlackSvg} width="80%" height={60} />
+          </View>
 
-        {/* Sign in text */}
-        <Text style={styles.signInText}>Sign in</Text>
+          {/* Sign in text */}
+          <Text style={styles.signInText}>Sign in</Text>
 
-        {/* Form */}
-        <View style={styles.form}>
-          {/* Email Input */}
-          <BlurView intensity={20} tint="light" style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your email"
-              placeholderTextColor="rgba(255, 255, 255, 0.6)"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-            />
-          </BlurView>
+          {/* Form */}
+          <View style={styles.form}>
+            {/* Email Input */}
+            <BlurView intensity={20} tint="light" style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your email"
+                placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+              />
+            </BlurView>
 
-          {/* Password Input */}
-          <BlurView intensity={20} tint="light" style={styles.inputContainer}>
-            <TextInput
-              style={[styles.input, styles.passwordInput]}
-              placeholder="Password"
-              placeholderTextColor="rgba(255, 255, 255, 0.6)"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-            />
-            <Pressable
-              style={styles.eyeIcon}
-              onPress={() => setShowPassword(!showPassword)}
-            >
-              {showPassword ? (
-                <Eye size={22} color="#FFFFFF" />
-              ) : (
-                <EyeSlash size={22} color="#FFFFFF" />
-              )}
+            {/* Password Input */}
+            <BlurView intensity={20} tint="light" style={styles.inputContainer}>
+              <TextInput
+                style={[styles.input, styles.passwordInput]}
+                placeholder="Password"
+                placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+              />
+              <Pressable
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? (
+                  <Eye size={22} color="#FFFFFF" />
+                ) : (
+                  <EyeSlash size={22} color="#FFFFFF" />
+                )}
+              </Pressable>
+            </BlurView>
+
+            {/* Forgot Password */}
+            <Pressable style={styles.forgotPassword}>
+              <Text style={styles.forgotPasswordText}>Forgot Password ?</Text>
             </Pressable>
-          </BlurView>
+          </View>
 
-          {/* Forgot Password */}
-          <Pressable style={styles.forgotPassword}>
-            <Text style={styles.forgotPasswordText}>Forgot Password ?</Text>
+          {/* Login Button */}
+          <Pressable
+            style={[
+              styles.loginButton,
+              (!formValid || isLoading) && styles.loginButtonDisabled,
+            ]}
+            onPress={handleLogin}
+            disabled={!formValid || isLoading}
+          >
+            <Text style={styles.loginButtonText}>
+              {isLoading ? "Loading..." : "Login"}
+            </Text>
           </Pressable>
-        </View>
 
-        {/* Login Button */}
-        <Pressable
-          style={[styles.loginButton, (!formValid || isLoading) && styles.loginButtonDisabled]}
-          onPress={handleLogin}
-          disabled={!formValid || isLoading}
-        >
-          <Text style={styles.loginButtonText}>
-            {isLoading ? 'Loading...' : 'Login'}
-          </Text>
-        </Pressable>
+          {/* Separator */}
+          <View style={styles.separatorContainer}>
+            <View style={styles.separatorLine} />
+            <Text style={styles.separatorText}>Or</Text>
+            <View style={styles.separatorLine} />
+          </View>
 
-        {/* Separator */}
-        <View style={styles.separatorContainer}>
-          <View style={styles.separatorLine} />
-          <Text style={styles.separatorText}>Or</Text>
-          <View style={styles.separatorLine} />
-        </View>
+          {/* Google Button */}
+          <Pressable style={styles.googleButton}>
+            <Text style={styles.googleButtonText}>Continue with Google</Text>
+          </Pressable>
 
-        {/* Google Button */}
-        <Pressable style={styles.googleButton}>
-          <Text style={styles.googleButtonText}>Continue with Google</Text>
-        </Pressable>
-
-        {/* Create Account */}
-        <Pressable
-          style={styles.createAccountButton}
-          onPress={() => router.push('/signup')}
-        >
-          <Text style={styles.createAccountText}>Create an Account</Text>
-        </Pressable>
+          {/* Create Account */}
+          <Pressable
+            style={styles.createAccountButton}
+            onPress={() => router.push("/signup")}
+          >
+            <Text style={styles.createAccountText}>Create an Account</Text>
+          </Pressable>
         </KeyboardAvoidingView>
       </LinearGradient>
     </ImageBackground>
@@ -169,25 +181,25 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   background: {
     flex: 1,
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   container: {
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 60,
     paddingBottom: 40,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   logoContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
   },
   signInText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    textAlign: 'center',
+    fontWeight: "600",
+    color: "#FFFFFF",
+    textAlign: "center",
     marginBottom: 30,
   },
   form: {
@@ -196,40 +208,40 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     borderRadius: 25,
-    overflow: 'hidden',
+    overflow: "hidden",
     height: 50,
-    justifyContent: 'center',
-    position: 'relative',
+    justifyContent: "center",
+    position: "relative",
   },
   input: {
     paddingHorizontal: 20,
     fontSize: 16,
-    color: '#FFFFFF',
-    height: '100%',
+    color: "#FFFFFF",
+    height: "100%",
   },
   passwordInput: {
     paddingRight: 50,
   },
   eyeIcon: {
-    position: 'absolute',
+    position: "absolute",
     right: 16,
-    height: '100%',
-    justifyContent: 'center',
+    height: "100%",
+    justifyContent: "center",
   },
   forgotPassword: {
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
   },
   forgotPasswordText: {
     fontSize: 14,
-    color: '#FFFFFF',
-    fontWeight: '500',
+    color: "#FFFFFF",
+    fontWeight: "500",
   },
   loginButton: {
-    backgroundColor: '#E9E0D0',
+    backgroundColor: "#E9E0D0",
     borderRadius: 25,
     height: 56,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 20,
   },
   loginButtonDisabled: {
@@ -237,50 +249,50 @@ const styles = StyleSheet.create({
   },
   loginButtonText: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#3C3C3B',
+    fontWeight: "700",
+    color: "#3C3C3B",
   },
   gradient: {
     flex: 1,
   },
   separatorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 20,
     gap: 12,
   },
   separatorLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   separatorText: {
     fontSize: 14,
-    color: '#FFFFFF',
-    fontWeight: '500',
+    color: "#FFFFFF",
+    fontWeight: "500",
   },
   googleButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: "#FFFFFF",
     borderRadius: 25,
     height: 56,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 20,
   },
   googleButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
   createAccountButton: {
-    alignSelf: 'center',
+    alignSelf: "center",
     paddingVertical: 8,
   },
   createAccountText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.7)',
-    textDecorationLine: 'underline',
+    color: "rgba(255, 255, 255, 0.7)",
+    textDecorationLine: "underline",
   },
 });
