@@ -1,12 +1,12 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import { Tabs } from "expo-router";
+import React from "react";
+import { Platform, StyleSheet } from "react-native";
 
-import { Compass, Heart, House, ChatCircle, User } from 'phosphor-react-native';
+import { ChatCircle, Compass, Heart, House, User } from "phosphor-react-native";
 
-import { HapticTab } from '@/components/haptic-tab';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { HapticTab } from "@/components/haptic-tab";
+import { Colors } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 const ICON_SIZE = 24;
 
@@ -23,14 +23,14 @@ function TabIcon({ focused, color, Icon }: TabIconProps) {
     <Icon
       size={ICON_SIZE}
       color={color}
-      weight={focused ? 'fill' : 'regular'}
+      weight={focused ? "fill" : "regular"}
     />
   );
 }
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const colors = Colors[colorScheme ?? "light"];
 
   return (
     <Tabs
@@ -44,12 +44,12 @@ export default function TabLayout() {
           borderTopColor: colors.tabBarBorder,
           borderTopWidth: StyleSheet.hairlineWidth,
           paddingTop: 8,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 8,
-          height: Platform.OS === 'ios' ? 88 : 64,
+          paddingBottom: Platform.OS === "ios" ? 28 : 8,
+          height: Platform.OS === "ios" ? 88 : 64,
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '500',
+          fontWeight: "500",
           marginTop: 4,
         },
         tabBarIconStyle: {
@@ -60,7 +60,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Explorer',
+          title: "Explorer",
           tabBarIcon: ({ focused, color }) => (
             <TabIcon focused={focused} color={color} Icon={Compass} />
           ),
@@ -69,7 +69,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="favorite"
         options={{
-          title: 'Favoris',
+          title: "Favoris",
           tabBarIcon: ({ focused, color }) => (
             <TabIcon focused={focused} color={color} Icon={Heart} />
           ),
@@ -78,7 +78,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: 'Accueil',
+          title: "Accueil",
           tabBarIcon: ({ focused, color }) => (
             <TabIcon focused={focused} color={color} Icon={House} />
           ),
@@ -87,7 +87,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="messages"
         options={{
-          title: 'Messages',
+          title: "Messages",
           tabBarIcon: ({ focused, color }) => (
             <TabIcon focused={focused} color={color} Icon={ChatCircle} />
           ),
@@ -96,7 +96,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profil',
+          title: "Profil",
           tabBarIcon: ({ focused, color }) => (
             <TabIcon focused={focused} color={color} Icon={User} />
           ),
@@ -106,6 +106,7 @@ export default function TabLayout() {
         name="index"
         options={{
           href: null,
+          tabBarStyle: { display: "none" },
         }}
       />
     </Tabs>
