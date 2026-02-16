@@ -106,6 +106,7 @@ export default function TabLayout() {
         name="index"
         options={{
           href: null,
+          tabBarStyle: { display: 'none' },
         }}
       />
     </Tabs>

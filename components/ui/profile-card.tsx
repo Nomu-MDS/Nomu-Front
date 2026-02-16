@@ -15,7 +15,7 @@ export interface ProfileHit {
   biography?: string;
   country?: string;
   city?: string;
-  interests?: string;
+  interests?: string[];
   image_url?: string;
 }
 
@@ -35,7 +35,7 @@ export const ProfileCard = memo(function ProfileCard({ profile, onPress }: Profi
   const displayBio = profile.biography || profile.bio || null;
 
   const interestsArray = profile.interests
-    ? profile.interests.split(',').map((i) => i.trim()).filter(Boolean).slice(0, 3)
+    ? profile.interests.slice(0, 3)
     : [];
 
   const initials = profile.name
@@ -96,9 +96,9 @@ export const ProfileCard = memo(function ProfileCard({ profile, onPress }: Profi
                 </ThemedText>
               </View>
             ))}
-            {profile.interests && profile.interests.split(',').length > 3 && (
+            {profile.interests && profile.interests.length > 3 && (
               <ThemedText style={[styles.moreInterests, { color: theme.icon }]}>
-                +{profile.interests.split(',').length - 3}
+                +{profile.interests.length - 3}
               </ThemedText>
             )}
           </View>
