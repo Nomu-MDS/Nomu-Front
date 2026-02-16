@@ -1,21 +1,21 @@
-import { getTokenAsync } from '@/lib/session';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { 
-  StyleSheet, 
-  View, 
-  ImageBackground, 
-  Pressable, 
-  Text, 
+import { getTokenAsync } from "@/lib/session";
+import { BlurView } from "expo-blur";
+import { useFonts } from "expo-font";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import {
   ActivityIndicator,
   Dimensions,
-} from 'react-native';
-import { BlurView } from 'expo-blur';
-import { SvgXml } from 'react-native-svg';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useFonts } from 'expo-font';
+  ImageBackground,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { SvgXml } from "react-native-svg";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 const logoSvg = `<svg width="311" height="62" viewBox="0 0 311 62" fill="none" xmlns="http://www.w3.org/2000/svg">
 <path d="M63.0546 45.1555C64.5435 52.1358 69.1178 51.2186 69.1178 55.2268C69.1178 57.5139 67.1703 58.0857 64.085 58.0857H48.0637C44.8595 58.0857 42.912 57.4007 42.912 55.1079C42.912 51.3319 48.862 51.6772 47.3731 44.2383L43.8235 26.1564C42.4478 18.944 40.2739 11.8505 32.7218 11.9637C26.6587 11.9637 21.1616 17.4551 21.1616 27.5264V42.1777C21.1616 52.8208 26.653 50.1883 26.653 55.2211C26.653 57.5082 24.8244 58.08 21.6202 58.08H5.26493C2.06068 58.08 0 57.395 0 55.1022C0 50.1826 5.72349 52.8151 5.72349 42.172V20.4273C5.72349 17.223 4.4667 15.1623 2.17391 13.447C1.03034 12.6431 0 11.8449 0 10.2427C0 8.41416 0.917117 7.61027 3.66281 6.35348C7.8974 4.29845 14.9909 2.23777 16.8251 2.12455C18.7726 2.12455 19.5708 3.26811 19.5708 5.55525V12.4223C23.9186 5.56091 30.8989 2.01132 38.2245 2.01132C51.268 2.01132 56.1933 10.4805 59.1654 25.5846L63.0546 45.1555Z" fill="#E9E0D0" style="mix-blend-mode:lighten"/>
@@ -31,7 +31,7 @@ export default function HomeScreen() {
   const router = useRouter();
 
   const [fontsLoaded] = useFonts({
-    'RocaOne-Bold': require('@/assets/fonts/roca/RocaOne-Bold.ttf'),
+    "RocaOne-Bold": require("@/assets/fonts/roca/RocaOne-Bold.ttf"),
   });
 
   useEffect(() => {
@@ -39,11 +39,11 @@ export default function HomeScreen() {
       const t = await getTokenAsync();
       setToken(t);
       setLoaded(true);
-      console.log('Home token present after async load:', !!t);
-      
+      console.log("Home token present after async load:", !!t);
+
       // Si l'utilisateur est connecté, rediriger vers la page home
       if (t) {
-        router.replace('/home');
+        router.replace("/home");
       }
     })();
   }, []);
@@ -60,20 +60,24 @@ export default function HomeScreen() {
   if (!token) {
     return (
       <ImageBackground
-        source={require('@/assets/images/basic_page.png')}
+        source={require("@/assets/images/basic_page.png")}
         style={styles.background}
         resizeMode="cover"
       >
         {/* Dégradé transparent en haut, foncé en bas */}
         <LinearGradient
-          colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.85)']}
+          colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.5)", "rgba(0,0,0,0.85)"]}
           locations={[0, 0.4, 1]}
           style={styles.gradient}
         >
           <View style={styles.container}>
             {/* Logo en haut */}
             <View style={styles.logoContainer}>
-              <SvgXml xml={logoSvg} width={width * 0.8} height={(width * 0.8) * (62 / 311)} />
+              <SvgXml
+                xml={logoSvg}
+                width={width * 0.8}
+                height={width * 0.8 * (62 / 311)}
+              />
             </View>
 
             {/* Section texte et boutons en bas */}
@@ -89,7 +93,7 @@ export default function HomeScreen() {
               <View style={styles.buttonContainer}>
                 <Pressable
                   style={styles.signInButton}
-                  onPress={() => router.push('/login')}
+                  onPress={() => router.push("/login")}
                 >
                   <BlurView intensity={30} style={styles.blurButton}>
                     <Text style={styles.signInText}>Sign in</Text>
@@ -98,9 +102,11 @@ export default function HomeScreen() {
 
                 <Pressable
                   style={styles.createAccountButton}
-                  onPress={() => router.push('/signup')}
+                  onPress={() => router.push("/signup")}
                 >
-                  <Text style={styles.createAccountText}>Create an account</Text>
+                  <Text style={styles.createAccountText}>
+                    Create an account
+                  </Text>
                 </Pressable>
               </View>
             </View>
@@ -117,83 +123,83 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000",
   },
   background: {
     flex: 1,
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   gradient: {
     flex: 1,
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   container: {
     flex: 1,
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingTop: 60,
     paddingBottom: 20,
     paddingHorizontal: 20,
   },
   logoContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: 40,
   },
   bottomSection: {
-    width: '100%',
+    width: "100%",
     gap: 32,
   },
   textContainer: {
     paddingHorizontal: 20,
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
   },
   heroText: {
     fontSize: 30,
-    fontFamily: 'RocaOne-Bold',
-    fontWeight: '700',
-    color: '#E9E0D0',
+    fontFamily: "RocaOne-Bold",
+    fontWeight: "700",
+    color: "#E9E0D0",
     lineHeight: 45,
   },
   buttonContainer: {
-    width: '100%',
+    width: "100%",
     gap: 16,
     paddingHorizontal: 20,
     marginBottom: 50,
   },
   signInButton: {
-    width: '100%',
+    width: "100%",
     borderRadius: 24,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   blurButton: {
     paddingVertical: 16,
     paddingHorizontal: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   signInText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#E9E0D0',
+    fontWeight: "600",
+    color: "#E9E0D0",
   },
   createAccountButton: {
-    width: '100%',
+    width: "100%",
     paddingVertical: 16,
     paddingHorizontal: 24,
-    backgroundColor: '#E9E0D0',
+    backgroundColor: "#E9E0D0",
     borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   createAccountText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
+    fontWeight: "600",
+    color: "#000",
   },
 });
