@@ -1,114 +1,113 @@
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Tabs } from "expo-router";
 import React from "react";
-import { Platform, StyleSheet } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ChatCircle, Compass, Heart, House, User } from "phosphor-react-native";
+const ACTIVE_BG = "#465E8A";
+const INACTIVE_COLOR = "#465E8A";
+const ACTIVE_ICON_COLOR = "#E4DBCB";
+const ICON_SIZE = 22;
 
-import { HapticTab } from "@/components/haptic-tab";
-import { Colors } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
+type MaterialIconName = React.ComponentProps<typeof MaterialIcons>["name"];
 
-const ICON_SIZE = 24;
+const ROUTE_ICONS: Record<string, MaterialIconName> = {
+  home: "home",
+  explore: "explore",
+  favorite: "calendar-today",
+  messages: "chat-bubble-outline",
+  profile: "person-outline",
+};
 
-type PhosphorIcon = typeof Compass;
+function CustomTabBar({ state, navigation }: BottomTabBarProps) {
+  const insets = useSafeAreaInsets();
 
-interface TabIconProps {
-  focused: boolean;
-  color: string;
-  Icon: PhosphorIcon;
-}
+  const visibleRoutes = state.routes.filter((r) => r.name !== "index");
 
-function TabIcon({ focused, color, Icon }: TabIconProps) {
   return (
-    <Icon
-      size={ICON_SIZE}
-      color={color}
-      weight={focused ? "fill" : "regular"}
-    />
+    <View style={[styles.wrapper, { bottom: insets.bottom + 10 }]}>
+      <View style={styles.pill}>
+        {visibleRoutes.map((route) => {
+          const isFocused = state.routes[state.index].name === route.name;
+          const icon = ROUTE_ICONS[route.name];
+
+          const onPress = () => {
+            const event = navigation.emit({
+              type: "tabPress",
+              target: route.key,
+              canPreventDefault: true,
+            });
+            if (!isFocused && !event.defaultPrevented) {
+              navigation.navigate(route.name);
+            }
+          };
+
+          return (
+            <Pressable key={route.key} style={styles.tabItem} onPress={onPress}>
+              {isFocused ? (
+                <View style={styles.activeCircle}>
+                  <MaterialIcons name={icon} size={ICON_SIZE} color={ACTIVE_ICON_COLOR} />
+                </View>
+              ) : (
+                <MaterialIcons name={icon} size={ICON_SIZE} color={INACTIVE_COLOR} />
+              )}
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? "light"];
-
   return (
     <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: colors.tabIconSelected,
-        tabBarInactiveTintColor: colors.tabIconDefault,
-        headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarStyle: {
-          backgroundColor: colors.tabBarBackground,
-          borderTopColor: colors.tabBarBorder,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          paddingTop: 8,
-          paddingBottom: Platform.OS === "ios" ? 28 : 8,
-          height: Platform.OS === "ios" ? 88 : 64,
-        },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: "500",
-          marginTop: 4,
-        },
-        tabBarIconStyle: {
-          marginTop: 4,
-        },
-      }}
+      screenOptions={{ headerShown: false }}
+      tabBar={(props) => <CustomTabBar {...props} />}
     >
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: "Explorer",
-          tabBarIcon: ({ focused, color }) => (
-            <TabIcon focused={focused} color={color} Icon={Compass} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="favorite"
-        options={{
-          title: "Favoris",
-          tabBarIcon: ({ focused, color }) => (
-            <TabIcon focused={focused} color={color} Icon={Heart} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="home"
-        options={{
-          title: "Accueil",
-          tabBarIcon: ({ focused, color }) => (
-            <TabIcon focused={focused} color={color} Icon={House} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="messages"
-        options={{
-          title: "Messages",
-          tabBarIcon: ({ focused, color }) => (
-            <TabIcon focused={focused} color={color} Icon={ChatCircle} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profil",
-          tabBarIcon: ({ focused, color }) => (
-            <TabIcon focused={focused} color={color} Icon={User} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="index"
-        options={{
-          href: null,
-          tabBarStyle: { display: "none" },
-        }}
-      />
+      <Tabs.Screen name="home" options={{ title: "Accueil" }} />
+      <Tabs.Screen name="explore" options={{ title: "Explorer" }} />
+      <Tabs.Screen name="favorite" options={{ title: "Réservations" }} />
+      <Tabs.Screen name="messages" options={{ title: "Messages" }} />
+      <Tabs.Screen name="profile" options={{ title: "Profil" }} />
+      <Tabs.Screen name="index" options={{ href: null }} />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  wrapper: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
+  pill: {
+    width: "90%",
+    height: 56,
+    borderRadius: 40,
+    backgroundColor: "#FFFFFF",
+    flexDirection: "row",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    height: "100%",
+  },
+  activeCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: ACTIVE_BG,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+});
