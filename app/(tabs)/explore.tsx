@@ -11,7 +11,7 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FilterBadge } from '@/components/ui/filter-badge';
+import { FilterModal, EMPTY_FILTERS, type FilterState } from '@/components/explore/filter-modal';
 import { ProfileCard, type ProfileHit } from '@/components/ui/profile-card';
 import { SearchBar } from '@/components/ui/search-bar';
 import { API_BASE_URL } from '@/constants/config';
@@ -21,12 +21,6 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { getToken } from '@/lib/session';
 import { useRouter } from 'expo-router';
 
-interface Interest {
-  id: number;
-  name: string;
-  icon: string | null;
-}
-
 interface SearchResult {
   hits: ProfileHit[];
   query: string;
@@ -34,82 +28,72 @@ interface SearchResult {
   estimatedTotalHits: number;
 }
 
+function countActiveFilters(filters: FilterState): number {
+  return (
+    filters.cities.length +
+    filters.languages.length +
+    filters.categories.length +
+    filters.sexes.length +
+    filters.prices.length
+  );
+}
+
 export default function ExploreScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = Colors[colorScheme];
 
-  // États de recherche
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ProfileHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  // Filtres
-  const [interests, setInterests] = useState<Interest[]>([]);
-  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<FilterState>(EMPTY_FILTERS);
 
-  // Debounce de la recherche
   const debouncedQuery = useDebounce(query, 400);
 
-  // Charger les intérêts disponibles
-  useEffect(() => {
-    const fetchInterests = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/interests`);
-        if (response.ok) {
-          const data = await response.json();
-          setInterests(data);
-        }
-      } catch (error) {
-        console.error('Erreur chargement intérêts:', error);
-      }
-    };
-    fetchInterests();
-  }, []);
-
-  // Effectuer la recherche
-  const performSearch = useCallback(async (searchQuery: string, filters: string[], isRefresh = false) => {
+  const performSearch = useCallback(async (
+    searchQuery: string,
+    filters: FilterState,
+    isRefresh = false
+  ) => {
     if (!isRefresh) setLoading(true);
-    
+
     try {
       const token = getToken();
       const params = new URLSearchParams();
-      
-      // Combiner la requête textuelle avec les intérêts sélectionnés
-      // (workaround car filterInterests utilise CONTAINS qui n'existe pas dans Meilisearch)
+
       const queryParts: string[] = [];
       if (searchQuery) queryParts.push(searchQuery);
-      if (filters.length > 0) queryParts.push(filters.join(' '));
-      
+
+      const allFilterTerms = [
+        ...filters.cities,
+        ...filters.languages,
+        ...filters.categories,
+        ...filters.sexes,
+        ...filters.prices,
+      ];
+      if (allFilterTerms.length > 0) queryParts.push(allFilterTerms.join(' '));
+
       const combinedQuery = queryParts.join(' ');
       if (combinedQuery) params.append('q', combinedQuery);
       params.append('limit', '20');
 
       const url = `${API_BASE_URL}/users/search?${params.toString()}`;
-      console.log('[Search] GET ->', url);
 
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const response = await fetch(url, { headers });
-      
+
       if (response.ok) {
         const data: SearchResult = await response.json();
-        console.log('[Search] Résultats:', data.hits.length);
         setResults(data.hits);
       } else {
-        const errorText = await response.text();
-        console.error('[Search] Erreur:', response.status, errorText);
         setResults([]);
       }
-    } catch (error) {
-      console.error('[Search] Erreur réseau:', error);
+    } catch {
       setResults([]);
     } finally {
       setLoading(false);
@@ -118,33 +102,21 @@ export default function ExploreScreen() {
     }
   }, []);
 
-  // Recherche automatique lors du changement de query ou filtres
   useEffect(() => {
-    performSearch(debouncedQuery, selectedInterests);
-  }, [debouncedQuery, selectedInterests, performSearch]);
+    performSearch(debouncedQuery, activeFilters);
+  }, [debouncedQuery, activeFilters, performSearch]);
 
-  // Pull to refresh
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
-    performSearch(debouncedQuery, selectedInterests, true);
-  }, [debouncedQuery, selectedInterests, performSearch]);
+    performSearch(debouncedQuery, activeFilters, true);
+  }, [debouncedQuery, activeFilters, performSearch]);
 
-  // Toggle filtre intérêt
-  const toggleInterest = useCallback((interestName: string) => {
-    setSelectedInterests((prev) =>
-      prev.includes(interestName)
-        ? prev.filter((i) => i !== interestName)
-        : [...prev, interestName]
-    );
-  }, []);
-
-  // Clear tous les filtres
-  const clearFilters = useCallback(() => {
-    setSelectedInterests([]);
+  const handleApplyFilters = useCallback((filters: FilterState) => {
+    setActiveFilters(filters);
   }, []);
 
   const router = useRouter();
-  // Render item pour FlatList
+
   const renderItem = useCallback(({ item }: { item: ProfileHit }) => (
     <ProfileCard
       profile={item}
@@ -154,19 +126,16 @@ export default function ExploreScreen() {
     />
   ), [router]);
 
-  // Key extractor
   const keyExtractor = useCallback((item: ProfileHit) => item.id.toString(), []);
 
-  // Empty state component
   const EmptyComponent = useCallback(() => {
     if (loading) return null;
-    
     return (
       <View style={styles.emptyContainer}>
-        <MaterialIcons 
-          name={hasSearched ? 'search-off' : 'explore'} 
-          size={64} 
-          color={theme.icon} 
+        <MaterialIcons
+          name={hasSearched ? 'search-off' : 'explore'}
+          size={64}
+          color={theme.icon}
         />
         <ThemedText style={[styles.emptyTitle, { color: theme.text }]}>
           {hasSearched ? 'Aucun résultat' : 'Explorez des profils'}
@@ -180,88 +149,43 @@ export default function ExploreScreen() {
     );
   }, [loading, hasSearched, theme]);
 
-  // Header component (barre de recherche + filtres)
+  const activeFilterCount = countActiveFilters(activeFilters);
+
   const HeaderComponent = useCallback(() => (
     <View style={styles.headerContainer}>
-      {/* Filtres actifs */}
-      {selectedInterests.length > 0 && (
-        <View style={styles.activeFiltersRow}>
-          <ThemedText style={[styles.activeFiltersLabel, { color: theme.icon }]}>
-            Filtres actifs:
-          </ThemedText>
-          <View style={styles.activeFiltersBadges}>
-            {selectedInterests.map((interest) => (
-              <FilterBadge
-                key={interest}
-                label={interest}
-                selected
-                onPress={() => toggleInterest(interest)}
-              />
-            ))}
-            <Pressable onPress={clearFilters} hitSlop={8}>
-              <ThemedText style={[styles.clearFilters, { color: theme.primary }]}>
-                Tout effacer
-              </ThemedText>
-            </Pressable>
-          </View>
-        </View>
-      )}
-
-      {/* Bouton filtres */}
       <Pressable
         style={[styles.filterButton, { borderColor: theme.border }]}
-        onPress={() => setShowFilters(!showFilters)}
+        onPress={() => setFilterModalVisible(true)}
       >
         <MaterialIcons name="tune" size={20} color={theme.text} />
-        <ThemedText style={styles.filterButtonText}>
-          Filtrer par intérêts
-        </ThemedText>
-        <MaterialIcons
-          name={showFilters ? 'expand-less' : 'expand-more'}
-          size={20}
-          color={theme.icon}
-        />
+        <ThemedText style={styles.filterButtonText}>Filtres</ThemedText>
+        {activeFilterCount > 0 && (
+          <View style={[styles.filterBadge, { backgroundColor: theme.primary }]}>
+            <ThemedText style={styles.filterBadgeText}>{activeFilterCount}</ThemedText>
+          </View>
+        )}
       </Pressable>
 
-      {/* Panel de filtres */}
-      {showFilters && (
-        <View style={[styles.filtersPanel, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.filtersBadges}>
-            {interests.map((interest) => (
-              <FilterBadge
-                key={interest.id}
-                label={interest.name}
-                selected={selectedInterests.includes(interest.name)}
-                onPress={() => toggleInterest(interest.name)}
-              />
-            ))}
-          </View>
-        </View>
-      )}
-
-      {/* Compteur de résultats */}
       {hasSearched && !loading && (
         <ThemedText style={[styles.resultsCount, { color: theme.icon }]}>
           {results.length} profil{results.length !== 1 ? 's' : ''} trouvé{results.length !== 1 ? 's' : ''}
         </ThemedText>
       )}
     </View>
-  ), [selectedInterests, showFilters, interests, results.length, hasSearched, loading, theme, toggleInterest, clearFilters]);
+  ), [activeFilterCount, hasSearched, loading, results.length, theme]);
 
   return (
     <ThemedView style={styles.container}>
-      {/* Header fixe avec titre et recherche */}
       <View style={[styles.topHeader, { borderBottomColor: theme.border }]}>
         <ThemedText type="title" style={styles.title}>Explorer</ThemedText>
         <SearchBar
           value={query}
           onChangeText={setQuery}
           placeholder="Rechercher un profil..."
-          onSubmitEditing={() => performSearch(query, selectedInterests)}
+          onSubmitEditing={() => performSearch(query, activeFilters)}
         />
       </View>
 
-      {/* Liste des résultats */}
       <FlatList
         data={results}
         renderItem={renderItem}
@@ -282,12 +206,18 @@ export default function ExploreScreen() {
         keyboardShouldPersistTaps="handled"
       />
 
-      {/* Loading overlay */}
       {loading && !refreshing && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color={theme.primary} />
         </View>
       )}
+
+      <FilterModal
+        visible={filterModalVisible}
+        onClose={() => setFilterModalVisible(false)}
+        onApply={handleApplyFilters}
+        initialFilters={activeFilters}
+      />
     </ThemedView>
   );
 }
@@ -308,25 +238,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   headerContainer: {
-    gap: 12,
+    gap: 8,
     paddingBottom: 8,
-  },
-  activeFiltersRow: {
-    gap: 8,
-  },
-  activeFiltersLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  activeFiltersBadges: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 8,
-  },
-  clearFilters: {
-    fontSize: 13,
-    fontWeight: '600',
   },
   filterButton: {
     flexDirection: 'row',
@@ -342,15 +255,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  filtersPanel: {
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
+  filterBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  filtersBadges: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  filterBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   resultsCount: {
     fontSize: 13,
@@ -359,6 +274,7 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 20,
     paddingTop: 16,
+    paddingBottom: 100,
     flexGrow: 1,
   },
   separator: {

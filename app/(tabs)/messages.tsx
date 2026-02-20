@@ -1,10 +1,18 @@
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useFonts } from 'expo-font';
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  View,
+  Text,
+  Platform,
+} from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getConversations } from '@/services/api/conversations';
@@ -12,6 +20,14 @@ import { getToken } from '@/lib/session';
 import { decodeJwt } from '@/lib/jwt';
 import { connectSocket, getSocket } from '@/services/socket';
 import type { Conversation, Message } from '@/types/message';
+
+const BG_COLOR = '#E9E0D0';
+const CARD_COLOR = '#FFFFFF';
+const NAME_COLOR = '#22172A';
+const PREVIEW_COLOR = '#6C727F';
+const TIMESTAMP_COLOR = '#9EA3AE';
+const UNREAD_DOT_COLOR = '#4CAF50';
+const SEPARATOR_COLOR = '#E8E8E8';
 
 export default function MessagesScreen() {
   const router = useRouter();
@@ -25,7 +41,11 @@ export default function MessagesScreen() {
   const [error, setError] = useState<string | null>(null);
   const currentUserIdRef = useRef<number | null>(null);
 
-  // Charger les conversations
+  const [fontsLoaded] = useFonts({
+    'RocaOne-Rg': require('@/assets/fonts/roca/RocaOne-Rg.ttf'),
+    'RocaOne-Bold': require('@/assets/fonts/roca/RocaOne-Bold.ttf'),
+  });
+
   const loadConversations = async (isRefresh = false, silent = false) => {
     if (!silent) {
       if (isRefresh) {
@@ -44,7 +64,6 @@ export default function MessagesScreen() {
         return;
       }
 
-      // Récupérer l'ID utilisateur depuis le token (supporte plusieurs clés possibles)
       const claims = decodeJwt(token);
       const currentUserIdFromToken = claims?.id || claims?.userId || claims?.sub || claims?.user_id;
 
@@ -53,15 +72,11 @@ export default function MessagesScreen() {
         return;
       }
 
-      // Charger les conversations
       const { conversations: convList } = await getConversations();
-      console.log('[Messages] Conversations chargées:', convList.length);
 
-      // Déterminer l'ID utilisateur depuis la première conversation si disponible
       if (convList.length > 0) {
         const firstConv = convList[0];
         let userId: number | null = null;
-        // Comparer via les IDs exposés par l'API (pas firebase_uid)
         if (firstConv.Voyager?.id === currentUserIdFromToken) {
           userId = firstConv.Voyager.id;
         } else if (firstConv.Local?.id === currentUserIdFromToken) {
@@ -75,7 +90,6 @@ export default function MessagesScreen() {
 
       setConversations(convList);
     } catch (err: any) {
-      console.error('[Messages] Erreur chargement:', err);
       if (!silent) {
         setError(err.message || 'Impossible de charger les conversations');
       }
@@ -87,7 +101,6 @@ export default function MessagesScreen() {
     }
   };
 
-  // Configurer le socket pour la première conversation
   const setupSocket = useCallback((firstConvId: number) => {
     const token = getToken();
     if (!token) return;
@@ -96,19 +109,13 @@ export default function MessagesScreen() {
     const socket = getSocket();
     if (!socket) return;
 
-    console.log('[Messages] Socket connecté, rejoindre conversation:', firstConvId);
     socket.emit('join_conversation', { conversation_id: firstConvId });
 
-    // Écouter les nouveaux messages
-    socket.on('new_message', (data: { message: Message; conversation_id: number }) => {
-      console.log('[Messages] Nouveau message reçu:', data);
-      // Recharger les conversations silencieusement
+    socket.on('new_message', () => {
       loadConversations(true, true);
     });
 
-    // Écouter les messages lus
     socket.on('message_read_update', () => {
-      console.log('[Messages] Message lu, refresh...');
       loadConversations(true, true);
     });
 
@@ -118,7 +125,6 @@ export default function MessagesScreen() {
     };
   }, []);
 
-  // Initialiser l'écran au focus
   useFocusEffect(
     useCallback(() => {
       let cleanup: (() => void) | undefined;
@@ -141,9 +147,7 @@ export default function MessagesScreen() {
           }
 
           const { conversations: convList } = await getConversations();
-          console.log('[Messages] Conversations chargées:', convList.length);
 
-          // Déterminer l'ID utilisateur
           if (convList.length > 0) {
             const firstConv = convList[0];
             let userId: number | null = null;
@@ -157,7 +161,6 @@ export default function MessagesScreen() {
               currentUserIdRef.current = userId;
             }
 
-            // Configurer le socket avec la première conversation
             cleanup = setupSocket(firstConv.id);
           }
 
@@ -165,7 +168,6 @@ export default function MessagesScreen() {
           setLoading(false);
           setRefreshing(false);
         } catch (err: any) {
-          console.error('[Messages] Erreur:', err);
           setError(err.message || 'Impossible de charger les conversations');
           setLoading(false);
           setRefreshing(false);
@@ -188,7 +190,6 @@ export default function MessagesScreen() {
     router.push(`/chat/${conversationId}`);
   };
 
-  // Formater le timestamp
   const formatTimestamp = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -197,168 +198,245 @@ export default function MessagesScreen() {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'À l\'instant';
+    if (diffMins < 1) return "À l'instant";
     if (diffMins < 60) return `${diffMins}m`;
-    if (diffHours < 24) return `${diffHours}h`;
+    if (diffHours < 24) {
+      const h = date.getHours().toString().padStart(2, '0');
+      const m = date.getMinutes().toString().padStart(2, '0');
+      return `${h}:${m}`;
+    }
     if (diffDays < 7) return `${diffDays}j`;
 
     return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   };
 
-  if (loading) {
+  const Header = () => (
+    <View style={styles.header}>
+      <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={12}>
+        <MaterialIcons name="arrow-back" size={24} color={NAME_COLOR} />
+      </Pressable>
+      <Text style={styles.headerTitle}>Messages</Text>
+      <View style={styles.headerRight} />
+    </View>
+  );
+
+  if (loading || !fontsLoaded) {
     return (
-      <ThemedView style={styles.container}>
-        <View style={styles.header}>
-          <ThemedText type="title" style={styles.title}>Messages</ThemedText>
+      <View style={styles.screenContainer}>
+        <Header />
+        <View style={styles.card}>
+          <View style={styles.centerContent}>
+            <ActivityIndicator size="large" color={theme.primary} />
+          </View>
         </View>
-        <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color={theme.primary} />
-        </View>
-      </ThemedView>
+      </View>
     );
   }
 
   if (error) {
     return (
-      <ThemedView style={styles.container}>
-        <View style={styles.header}>
-          <ThemedText type="title" style={styles.title}>Messages</ThemedText>
+      <View style={styles.screenContainer}>
+        <Header />
+        <View style={styles.card}>
+          <View style={styles.centerContent}>
+            <Text style={[styles.errorText, { color: theme.icon }]}>{error}</Text>
+            <Pressable
+              style={[styles.retryButton, { backgroundColor: theme.primary }]}
+              onPress={() => loadConversations()}
+            >
+              <Text style={styles.retryButtonText}>Réessayer</Text>
+            </Pressable>
+          </View>
         </View>
-        <View style={styles.centerContent}>
-          <MaterialIcons name="error-outline" size={64} color={theme.icon} />
-          <ThemedText style={[styles.errorText, { color: theme.icon }]}>{error}</ThemedText>
-          <Pressable
-            style={[styles.retryButton, { backgroundColor: theme.primary }]}
-            onPress={() => loadConversations()}
-          >
-            <ThemedText style={styles.retryButtonText}>Réessayer</ThemedText>
-          </Pressable>
-        </View>
-      </ThemedView>
+      </View>
     );
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <ThemedText type="title" style={styles.title}>Messages</ThemedText>
-      </View>
+    <View style={styles.screenContainer}>
+      <Header />
+      <View style={styles.card}>
+        <FlatList
+          data={conversations}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item }) => {
+            const otherUser = item.voyager_id === currentUserId ? item.Local : item.Voyager;
+            const lastMessage = item.Messages?.[0];
 
-      <FlatList
-        data={conversations}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => {
-          // Déterminer l'autre utilisateur
-          const otherUser = item.voyager_id === currentUserId ? item.Local : item.Voyager;
-          const lastMessage = item.Messages?.[0];
+            const initials = otherUser.name
+              .split(' ')
+              .map((n: string) => n[0])
+              .join('')
+              .toUpperCase()
+              .slice(0, 2);
 
-          // Calculer initiales
-          const initials = otherUser.name
-            .split(' ')
-            .map((n) => n[0])
-            .join('')
-            .toUpperCase()
-            .slice(0, 2);
+            const unreadCount = item.Messages?.filter(
+              (msg: Message) => !msg.read && msg.user_id !== currentUserId
+            ).length || 0;
 
-          // Compter les messages non lus
-          const unreadCount = item.Messages?.filter(
-            (msg) => !msg.read && msg.user_id !== currentUserId
-          ).length || 0;
-
-          return (
-            <Pressable
-              style={[styles.conversationItem, { borderBottomColor: theme.border }]}
-              onPress={() => handleOpenConversation(item.id)}
-            >
-              <View style={styles.avatarContainer}>
-                {otherUser.image_url ? (
-                  <Image source={{ uri: otherUser.image_url }} style={styles.avatar} />
-                ) : (
+            return (
+              <Pressable
+                style={styles.conversationItem}
+                onPress={() => handleOpenConversation(item.id)}
+              >
+                <View style={styles.avatarWrapper}>
                   <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary }]}>
-                    <ThemedText style={styles.initials}>{initials}</ThemedText>
+                    <Text style={styles.initials}>{initials}</Text>
                   </View>
-                )}
-                {unreadCount > 0 && (
-                  <View style={[styles.badge, { backgroundColor: theme.primary }]}>
-                    <ThemedText style={styles.badgeText}>{unreadCount}</ThemedText>
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.conversationContent}>
-                <View style={styles.conversationHeader}>
-                  <ThemedText style={styles.userName} numberOfLines={1}>
-                    {otherUser.name}
-                  </ThemedText>
-                  {lastMessage && (
-                    <ThemedText style={[styles.timestamp, { color: theme.icon }]}>
-                      {formatTimestamp(lastMessage.createdAt)}
-                    </ThemedText>
-                  )}
                 </View>
 
-                {lastMessage ? (
-                  <View style={styles.lastMessageContainer}>
-                    <ThemedText
-                      style={[
-                        styles.lastMessage,
-                        { color: theme.icon },
-                        unreadCount > 0 && styles.unreadMessage,
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {lastMessage.user_id === currentUserId && 'Vous: '}
-                      {lastMessage.attachment ? '📷 Photo' : lastMessage.content}
-                    </ThemedText>
-                  </View>
-                ) : (
-                  <ThemedText style={[styles.lastMessage, { color: theme.icon }]}>
-                    Aucun message
-                  </ThemedText>
-                )}
-              </View>
+                <View style={styles.conversationContent}>
+                  <Text style={styles.userName} numberOfLines={1}>
+                    {otherUser.name}
+                  </Text>
+                  <Text style={styles.lastMessage} numberOfLines={1}>
+                    {lastMessage
+                      ? lastMessage.attachment
+                        ? '📷 Photo'
+                        : lastMessage.content
+                      : 'Aucun message'}
+                  </Text>
+                </View>
 
-              <MaterialIcons name="chevron-right" size={24} color={theme.icon} />
-            </Pressable>
-          );
-        }}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.primary}
-            colors={[theme.primary]}
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <MaterialIcons name="chat-bubble-outline" size={64} color={theme.icon} />
-            <ThemedText style={[styles.emptyText, { color: theme.icon }]}>
-              Aucune conversation
-            </ThemedText>
-            <ThemedText style={[styles.emptySubtext, { color: theme.icon }]}>
-              Commencez une conversation en visitant le profil d'un utilisateur
-            </ThemedText>
-          </View>
-        }
-      />
-    </ThemedView>
+                <View style={styles.rightSection}>
+                  {unreadCount > 0 && <View style={styles.unreadDot} />}
+                  {lastMessage && (
+                    <Text style={styles.timestamp}>
+                      {formatTimestamp(lastMessage.createdAt)}
+                    </Text>
+                  )}
+                </View>
+              </Pressable>
+            );
+          }}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={theme.primary}
+              colors={[theme.primary]}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={[styles.emptyText, { color: theme.icon }]}>
+                Aucune conversation
+              </Text>
+              <Text style={[styles.emptySubtext, { color: theme.icon }]}>
+                Commencez une conversation en visitant le profil d'un utilisateur
+              </Text>
+            </View>
+          }
+        />
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screenContainer: {
     flex: 1,
+    backgroundColor: BG_COLOR,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'ios' ? 72 : 52,
+    paddingBottom: 20,
   },
-  title: {
-    fontSize: 32,
+  backButton: {
+    width: 40,
+    alignItems: 'flex-start',
+  },
+  headerTitle: {
+    fontFamily: 'RocaOne-Bold',
+    fontSize: 24,
+    color: NAME_COLOR,
+    textAlign: 'center',
+  },
+  headerRight: {
+    width: 40,
+  },
+  card: {
+    flex: 1,
+    backgroundColor: CARD_COLOR,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+  },
+  listContent: {
+    paddingHorizontal: 25,
+    paddingTop: 8,
+    paddingBottom: 100,
+    flexGrow: 1,
+  },
+  conversationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 16,
+  },
+  avatarWrapper: {
+    width: 56,
+    height: 56,
+  },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+  },
+  avatarPlaceholder: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  initials: {
+    fontSize: 18,
     fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  conversationContent: {
+    flex: 1,
+    gap: 4,
+  },
+  userName: {
+    fontFamily: 'RocaOne-Rg',
+    fontSize: 18,
+    lineHeight: 24,
+    color: NAME_COLOR,
+  },
+  lastMessage: {
+    fontFamily: Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' }),
+    fontSize: 12,
+    lineHeight: 17,
+    color: PREVIEW_COLOR,
+  },
+  rightSection: {
+    alignItems: 'flex-end',
+    gap: 6,
+    minWidth: 48,
+  },
+  unreadDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: UNREAD_DOT_COLOR,
+  },
+  timestamp: {
+    fontFamily: Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' }),
+    fontSize: 12,
+    color: TIMESTAMP_COLOR,
+    textAlign: 'right',
+  },
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: SEPARATOR_COLOR,
+    marginLeft: 72,
   },
   centerContent: {
     flex: 1,
@@ -381,83 +459,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 15,
-  },
-  listContent: {
-    flexGrow: 1,
-  },
-  conversationItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 12,
-    borderBottomWidth: 1,
-  },
-  avatarContainer: {
-    position: 'relative',
-  },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-  },
-  avatarPlaceholder: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  initials: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  badgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
-    lineHeight: 20,
-  },
-  conversationContent: {
-    flex: 1,
-    gap: 4,
-  },
-  conversationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 8,
-  },
-  userName: {
-    fontSize: 16,
-    fontWeight: '600',
-    flex: 1,
-  },
-  timestamp: {
-    fontSize: 12,
-  },
-  lastMessageContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  lastMessage: {
-    fontSize: 14,
-    flex: 1,
-  },
-  unreadMessage: {
-    fontWeight: '600',
   },
   emptyContainer: {
     flex: 1,
