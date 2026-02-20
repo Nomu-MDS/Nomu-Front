@@ -1,12 +1,19 @@
-// Composant pour la zone de saisie des messages
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useRef, useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import {
+  Animated,
+  Image,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+const BLUE = '#465E8A';
+const WHITE = '#FFFFFF';
 
 interface MessageInputProps {
   onSendMessage: (content: string, attachment: string | null) => void;
@@ -15,243 +22,275 @@ interface MessageInputProps {
 }
 
 export function MessageInput({ onSendMessage, onTyping, disabled = false }: MessageInputProps) {
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
-
   const [message, setMessage] = useState('');
   const [attachment, setAttachment] = useState<string | null>(null);
+  const [menuVisible, setMenuVisible] = useState(false);
+
+  const slideAnim = useRef(new Animated.Value(12)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const openMenu = () => {
+    setMenuVisible(true);
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 180, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const closeMenu = () => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 0, duration: 130, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 12, duration: 130, useNativeDriver: true }),
+    ]).start(() => setMenuVisible(false));
+  };
+
+  const toggleMenu = () => (menuVisible ? closeMenu() : openMenu());
 
   const handleTextChange = (text: string) => {
     setMessage(text);
-
-    // Clear le timeout précédent
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
     }
-
     if (text.length > 0) {
-      // Envoyer typing true à chaque frappe
       onTyping(true);
-
-      // Auto-stop après 2 secondes d'inactivité
-      typingTimeoutRef.current = setTimeout(() => {
-        onTyping(false);
-      }, 2000);
+      typingTimeoutRef.current = setTimeout(() => onTyping(false), 2000);
     } else {
-      // Texte vide = stop typing immédiat
       onTyping(false);
     }
   };
 
   const handleSend = () => {
     if ((!message.trim() && !attachment) || disabled) return;
-
-    // Clear le timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
     }
-
     onSendMessage(message.trim(), attachment);
     setMessage('');
     setAttachment(null);
     onTyping(false);
   };
 
-  const pickImageFromLibrary = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Permission requise', "Autorisez l'accès à la galerie pour choisir une photo.");
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 0.8,
-      base64: true,
-    });
-
-    if (!result.canceled && result.assets?.[0]) {
-      const asset = result.assets[0];
-      // Vérifier la taille (10MB max)
-      if (asset.fileSize && asset.fileSize > 10 * 1024 * 1024) {
-        Alert.alert('Fichier trop volumineux', "L'image ne doit pas dépasser 10MB");
-        return;
-      }
-      // Convertir en base64 data URL
-      if (asset.base64 && asset.mimeType) {
-        const base64 = `data:${asset.mimeType};base64,${asset.base64}`;
-        setAttachment(base64);
-      } else if (asset.uri) {
-        // Fallback sur l'URI locale
-        setAttachment(asset.uri);
-      }
-    }
-  };
-
-  const pickImageFromCamera = async () => {
+  const pickFromCamera = async () => {
+    closeMenu();
     const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Permission requise', "Autorisez l'accès à la caméra pour prendre une photo.");
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      quality: 0.8,
-      base64: true,
-    });
-
+    if (!permission.granted) return;
+    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.8, base64: true });
     if (!result.canceled && result.assets?.[0]) {
-      const asset = result.assets[0];
-      if (asset.base64 && asset.mimeType) {
-        const base64 = `data:${asset.mimeType};base64,${asset.base64}`;
-        setAttachment(base64);
-      } else if (asset.uri) {
-        setAttachment(asset.uri);
-      }
+      const a = result.assets[0];
+      setAttachment(a.base64 && a.mimeType ? `data:${a.mimeType};base64,${a.base64}` : a.uri);
     }
   };
 
-  const handleAttachImage = () => {
-    Alert.alert('Ajouter une photo', 'Choisissez une source', [
-      { text: 'Appareil photo', onPress: pickImageFromCamera },
-      { text: 'Galerie', onPress: pickImageFromLibrary },
-      { text: 'Annuler', style: 'cancel' },
-    ]);
+  const pickFromLibrary = async () => {
+    closeMenu();
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, quality: 0.8, base64: true });
+    if (!result.canceled && result.assets?.[0]) {
+      const a = result.assets[0];
+      setAttachment(a.base64 && a.mimeType ? `data:${a.mimeType};base64,${a.base64}` : a.uri);
+    }
   };
 
-  const canSend = (message.trim().length > 0 || attachment) && !disabled;
+  const canSend = (message.trim().length > 0 || !!attachment) && !disabled;
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
-      {/* Preview de l'image attachée */}
+    <View style={styles.wrapper}>
+      {/* Mini popup animée au-dessus de l'input */}
+      {menuVisible && (
+        <Animated.View
+          style={[
+            styles.popup,
+            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+          ]}
+        >
+          <Pressable style={styles.popupOption} onPress={pickFromCamera}>
+            <View style={styles.popupIcon}>
+              <MaterialIcons name="camera-alt" size={18} color={WHITE} />
+            </View>
+            <Text style={styles.popupText}>Appareil photo</Text>
+          </Pressable>
+
+          <View style={styles.popupSeparator} />
+
+          <Pressable style={styles.popupOption} onPress={pickFromLibrary}>
+            <View style={styles.popupIcon}>
+              <MaterialIcons name="photo-library" size={18} color={WHITE} />
+            </View>
+            <Text style={styles.popupText}>Galerie</Text>
+          </Pressable>
+
+          <View style={styles.popupSeparator} />
+
+          <Pressable style={styles.popupOption} onPress={closeMenu}>
+            <View style={styles.popupIcon}>
+              <MaterialIcons name="calendar-today" size={18} color={WHITE} />
+            </View>
+            <Text style={styles.popupText}>Réservation</Text>
+          </Pressable>
+        </Animated.View>
+      )}
+
+      {/* Preview image attachée */}
       {attachment && (
         <View style={styles.attachmentPreview}>
           <Image source={{ uri: attachment }} style={styles.previewImage} />
-          <Pressable
-            style={[styles.removeButton, { backgroundColor: theme.primary }]}
-            onPress={() => setAttachment(null)}
-            hitSlop={8}
-          >
-            <MaterialIcons name="close" size={16} color="#FFFFFF" />
+          <Pressable style={styles.removeButton} onPress={() => setAttachment(null)} hitSlop={8}>
+            <MaterialIcons name="close" size={14} color={WHITE} />
           </Pressable>
         </View>
       )}
 
-      {/* Zone de saisie */}
-      <View style={styles.inputRow}>
-        {/* Bouton d'attachement */}
-        <Pressable
-          onPress={handleAttachImage}
-          disabled={disabled}
-          style={styles.attachButton}
-          hitSlop={8}
-        >
-          <MaterialIcons name="image" size={24} color={disabled ? theme.icon : theme.primary} />
+      {/* Pill de saisie */}
+      <View style={styles.inputPill}>
+        <Pressable onPress={toggleMenu} disabled={disabled} style={styles.addButton} hitSlop={8}>
+          <View style={styles.addCircle}>
+            <MaterialIcons name="add" size={26} color={WHITE} />
+          </View>
         </Pressable>
 
-        {/* Input de message */}
-        <View style={[styles.inputContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <TextInput
-            style={[styles.input, { color: theme.text }]}
-            placeholder="Votre message..."
-            placeholderTextColor={theme.placeholder}
-            value={message}
-            onChangeText={handleTextChange}
-            multiline
-            maxLength={2000}
-            editable={!disabled}
-          />
-          <ThemedText style={[styles.charCount, { color: theme.icon }]}>
-            {message.length}/2000
-          </ThemedText>
-        </View>
+        <TextInput
+          style={styles.input}
+          placeholder="Type Message"
+          placeholderTextColor={BLUE}
+          value={message}
+          onChangeText={handleTextChange}
+          multiline
+          maxLength={2000}
+          editable={!disabled}
+          onFocus={menuVisible ? closeMenu : undefined}
+        />
 
-        {/* Bouton d'envoi */}
-        <Pressable
-          onPress={handleSend}
-          disabled={!canSend}
-          style={[
-            styles.sendButton,
-            { backgroundColor: canSend ? theme.primary : theme.surface },
-          ]}
-          hitSlop={8}
-        >
-          <MaterialIcons name="send" size={20} color={canSend ? '#FFFFFF' : theme.icon} />
-        </Pressable>
+        {canSend && (
+          <>
+            <View style={styles.divider} />
+            <Pressable onPress={handleSend} style={styles.sendButton} hitSlop={8}>
+              <MaterialIcons name="send" size={20} color={BLUE} />
+            </Pressable>
+          </>
+        )}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    borderTopWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
+  wrapper: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+    gap: 8,
   },
+  // ── Popup ──────────────────────────────────────────────
+  popup: {
+    alignSelf: 'flex-start',
+    marginLeft: 4,
+    backgroundColor: WHITE,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: BLUE,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
+    minWidth: 200,
+  },
+  popupOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  popupIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: BLUE,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  popupText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: BLUE,
+  },
+  popupSeparator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: BLUE,
+    opacity: 0.15,
+    marginHorizontal: 14,
+  },
+  // ── Attachment preview ──────────────────────────────────
   attachmentPreview: {
     position: 'relative',
     alignSelf: 'flex-start',
+    marginLeft: 4,
   },
   previewImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 12,
+    width: 80,
+    height: 80,
+    borderRadius: 10,
   },
   removeButton: {
     position: 'absolute',
     top: 4,
     right: 4,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: BLUE,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  inputRow: {
+  // ── Input pill ──────────────────────────────────────────
+  inputPill: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 10,
-  },
-  attachButton: {
-    padding: 8,
-  },
-  inputContainer: {
-    flex: 1,
-    borderRadius: 24,
+    alignItems: 'center',
+    height: 64,
+    borderRadius: 100,
     borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-    minHeight: 44,
-    maxHeight: 120,
+    borderColor: BLUE,
+    paddingHorizontal: 12,
+    gap: 8,
+    backgroundColor: WHITE,
   },
-  input: {
-    fontSize: 15,
-    lineHeight: 20,
-    maxHeight: 80,
-  },
-  charCount: {
-    fontSize: 10,
-    textAlign: 'right',
-    marginTop: 2,
-  },
-  sendButton: {
+  addCircle: {
     width: 44,
     height: 44,
     borderRadius: 22,
+    backgroundColor: BLUE,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+  },
+  addButton: {
+    flexShrink: 0,
+  },
+  input: {
+    flex: 1,
+    fontFamily: Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' }),
+    fontSize: 14,
+    color: BLUE,
+    maxHeight: 44,
+    paddingVertical: 0,
+  },
+  divider: {
+    width: 1,
+    height: 33,
+    backgroundColor: BLUE,
+    opacity: 0.3,
+    flexShrink: 0,
+  },
+  sendButton: {
+    width: 33,
+    height: 33,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
   },
 });
