@@ -1,11 +1,14 @@
-// Composant pour afficher une bulle de message
 import React from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, Platform, StyleSheet, Text, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { Message } from '@/types/message';
+
+const RECEIVED_BG = 'rgba(60,60,59,0.41)';
+const SENT_BG = '#3c3c3b';
+const TEXT_COLOR = '#3c3c3b';
+const SENT_TEXT_COLOR = '#FFFFFF';
+const TIMESTAMP_COLOR = '#3c3c3b';
+const MONO = Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' });
 
 interface MessageBubbleProps {
   message: Message;
@@ -13,25 +16,17 @@ interface MessageBubbleProps {
 }
 
 export function MessageBubble({ message, isCurrentUser }: MessageBubbleProps) {
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
-
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const m = date.getMinutes().toString().padStart(2, '0');
+    const period = date.getHours() >= 12 ? 'PM' : 'AM';
+    const h12 = date.getHours() % 12 || 12;
+    return `${h12}:${m} ${period}`;
   };
 
   return (
-    <View style={[styles.container, isCurrentUser ? styles.sentContainer : styles.receivedContainer]}>
-      <View
-        style={[
-          styles.bubble,
-          isCurrentUser
-            ? { backgroundColor: theme.primary }
-            : { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 },
-        ]}
-      >
-        {/* Pièce jointe (image) */}
+    <View style={[styles.wrapper, isCurrentUser ? styles.wrapperSent : styles.wrapperReceived]}>
+      <View style={[styles.bubble, isCurrentUser ? styles.bubbleSent : styles.bubbleReceived]}>
         {message.attachment && (
           <Image
             source={{ uri: message.attachment }}
@@ -39,83 +34,68 @@ export function MessageBubble({ message, isCurrentUser }: MessageBubbleProps) {
             resizeMode="cover"
           />
         )}
-
-        {/* Contenu du message */}
-        {message.content && (
-          <ThemedText
-            style={[
-              styles.content,
-              { color: isCurrentUser ? '#FFFFFF' : theme.text },
-            ]}
-          >
+        {message.content ? (
+          <Text style={[styles.content, { color: isCurrentUser ? SENT_TEXT_COLOR : TEXT_COLOR }]}>
             {message.content}
-          </ThemedText>
-        )}
-
-        {/* Timestamp et statut de lecture */}
-        <View style={styles.footer}>
-          <ThemedText
-            style={[
-              styles.time,
-              { color: isCurrentUser ? '#FFFFFF' : theme.icon, opacity: 0.7 },
-            ]}
-          >
-            {formatTime(message.createdAt)}
-          </ThemedText>
-          {isCurrentUser && (
-            <ThemedText style={[styles.readStatus, { color: '#FFFFFF', opacity: 0.7 }]}>
-              {message.read ? '✓✓' : '✓'}
-            </ThemedText>
-          )}
-        </View>
+          </Text>
+        ) : null}
       </View>
+
+      <Text style={[styles.timestamp, isCurrentUser ? styles.timestampRight : styles.timestampLeft]}>
+        {formatTime(message.createdAt)}
+        {isCurrentUser ? (message.read ? '  ✓✓' : '  ✓') : ''}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginVertical: 4,
-    paddingHorizontal: 16,
+  wrapper: {
+    marginVertical: 3,
+    paddingHorizontal: 12,
+    gap: 4,
   },
-  sentContainer: {
+  wrapperSent: {
     alignItems: 'flex-end',
   },
-  receivedContainer: {
+  wrapperReceived: {
     alignItems: 'flex-start',
   },
   bubble: {
-    maxWidth: '75%',
-    borderRadius: 20,
-    padding: 12,
-    gap: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
+    maxWidth: '78%',
+    borderRadius: 100,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  bubbleReceived: {
+    backgroundColor: RECEIVED_BG,
+  },
+  bubbleSent: {
+    backgroundColor: SENT_BG,
+  },
+  content: {
+    fontFamily: MONO,
+    fontSize: 12,
+    letterSpacing: -0.24,
+    lineHeight: 18,
   },
   attachment: {
-    width: '100%',
-    height: 200,
+    width: 200,
+    height: 150,
     borderRadius: 12,
     marginBottom: 4,
   },
-  content: {
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 4,
-    marginTop: 2,
-  },
-  time: {
+  timestamp: {
+    fontFamily: Platform.select({ ios: 'System', android: 'normal', default: 'normal' }),
     fontSize: 11,
+    color: TIMESTAMP_COLOR,
+    opacity: 0.7,
+    letterSpacing: -0.22,
   },
-  readStatus: {
-    fontSize: 12,
+  timestampLeft: {
+    alignSelf: 'flex-start',
+  },
+  timestampRight: {
+    alignSelf: 'flex-end',
   },
 });
