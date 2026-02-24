@@ -1,25 +1,29 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useFonts } from 'expo-font';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   FlatList,
+  Image,
+  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { FilterModal, EMPTY_FILTERS, type FilterState } from '@/components/explore/filter-modal';
-import { ProfileCard, type ProfileHit } from '@/components/ui/profile-card';
 import { SearchBar } from '@/components/ui/search-bar';
+import { type ProfileHit } from '@/components/ui/profile-card';
 import { API_BASE_URL } from '@/constants/config';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { FontFamily } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useDebounce } from '@/hooks/use-debounce';
 import { getToken } from '@/lib/session';
-import { useRouter } from 'expo-router';
 
 interface SearchResult {
   hits: ProfileHit[];
@@ -38,9 +42,136 @@ function countActiveFilters(filters: FilterState): number {
   );
 }
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const H_PAD = 16;
+const COL_GAP = 10;
+const CARD_W = (SCREEN_WIDTH - H_PAD * 2 - COL_GAP) / 2;
+const CARD_H = CARD_W * (4 / 3);
+
+// ── Grid card ──────────────────────────────────────────────────────────────────
+
+function GridCard({
+  profile,
+  fontsLoaded,
+  onPress,
+}: {
+  profile: ProfileHit;
+  fontsLoaded: boolean;
+  onPress: () => void;
+}) {
+  const { shadows } = useTheme();
+
+  const imageUri = profile.image_url ?? `https://i.pravatar.cc/400?u=${profile.user_id}`;
+  const location = profile.city || profile.country || profile.location || null;
+  const firstInterest = profile.interests?.[0] ?? null;
+
+  return (
+    <Pressable
+      style={[gridStyles.card, shadows.md, { width: CARD_W, height: CARD_H }]}
+      onPress={onPress}
+      android_ripple={{ color: 'rgba(255,255,255,0.15)', borderless: false }}
+    >
+      <Image source={{ uri: imageUri }} style={gridStyles.image} resizeMode="cover" />
+
+      <LinearGradient
+        colors={['transparent', 'rgba(14,34,74,0.45)', 'rgba(14,34,74,0.90)']}
+        locations={[0.3, 0.6, 1]}
+        style={gridStyles.gradient}
+      />
+
+      {firstInterest && (
+        <View style={gridStyles.tag}>
+          <Text style={[gridStyles.tagText, { fontFamily: FontFamily.mono }]} numberOfLines={1}>
+            {firstInterest}
+          </Text>
+        </View>
+      )}
+
+      <View style={gridStyles.bottom}>
+        <Text
+          style={[gridStyles.name, fontsLoaded ? { fontFamily: FontFamily.rocaRg } : {}]}
+          numberOfLines={1}
+        >
+          {profile.name}
+        </Text>
+        {location && (
+          <View style={gridStyles.locationRow}>
+            <MaterialIcons name="location-on" size={11} color="rgba(255,255,255,0.7)" />
+            <Text style={[gridStyles.locationText, { fontFamily: FontFamily.mono }]} numberOfLines={1}>
+              {location}
+            </Text>
+          </View>
+        )}
+      </View>
+    </Pressable>
+  );
+}
+
+const gridStyles = StyleSheet.create({
+  card: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: '#C8C0B4',
+  },
+  image: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  gradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  tag: {
+    position: 'absolute',
+    top: 12,
+    left: 10,
+    backgroundColor: 'rgba(255,106,87,0.88)',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 100,
+  },
+  tagText: {
+    fontSize: 10,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  bottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 12,
+    paddingBottom: 14,
+    gap: 3,
+  },
+  name: {
+    fontSize: 15,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  locationText: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.75)',
+    letterSpacing: 0.1,
+    flex: 1,
+  },
+});
+
+// ── Screen ─────────────────────────────────────────────────────────────────────
+
 export default function ExploreScreen() {
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
+  const router = useRouter();
+  const { colors } = useTheme();
+
+  const [fontsLoaded] = useFonts({
+    'RocaOne-Rg': require('@/assets/fonts/roca/RocaOne-Rg.ttf'),
+    'RocaOne-Bold': require('@/assets/fonts/roca/RocaOne-Bold.ttf'),
+  });
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ProfileHit[]>([]);
@@ -48,45 +179,46 @@ export default function ExploreScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
+  const rawParams = useLocalSearchParams<{
+    cities?: string;
+    languages?: string;
+    categories?: string;
+    sexes?: string;
+    prices?: string;
+  }>();
+
   const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<FilterState>(EMPTY_FILTERS);
+  const [activeFilters, setActiveFilters] = useState<FilterState>(() => ({
+    cities:     rawParams.cities     ? rawParams.cities.split(',')     : [],
+    languages:  rawParams.languages  ? rawParams.languages.split(',')  : [],
+    categories: rawParams.categories ? rawParams.categories.split(',') : [],
+    sexes:      rawParams.sexes      ? rawParams.sexes.split(',')      : [],
+    prices:     rawParams.prices     ? rawParams.prices.split(',')     : [],
+  }));
 
   const debouncedQuery = useDebounce(query, 400);
 
   const performSearch = useCallback(async (
     searchQuery: string,
     filters: FilterState,
-    isRefresh = false
+    isRefresh = false,
   ) => {
     if (!isRefresh) setLoading(true);
-
     try {
       const token = getToken();
       const params = new URLSearchParams();
 
       const queryParts: string[] = [];
       if (searchQuery) queryParts.push(searchQuery);
-
-      const allFilterTerms = [
-        ...filters.cities,
-        ...filters.languages,
-        ...filters.categories,
-        ...filters.sexes,
-        ...filters.prices,
-      ];
-      if (allFilterTerms.length > 0) queryParts.push(allFilterTerms.join(' '));
-
-      const combinedQuery = queryParts.join(' ');
-      if (combinedQuery) params.append('q', combinedQuery);
+      if (filters.cities.length > 0) queryParts.push(filters.cities.join(' '));
+      if (queryParts.length > 0) params.append('q', queryParts.join(' '));
+      if (filters.categories.length > 0) params.append('filterInterests', filters.categories.join(','));
       params.append('limit', '20');
-
-      const url = `${API_BASE_URL}/users/search?${params.toString()}`;
 
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const response = await fetch(url, { headers });
-
+      const response = await fetch(`${API_BASE_URL}/users/search?${params.toString()}`, { headers });
       if (response.ok) {
         const data: SearchResult = await response.json();
         setResults(data.hits);
@@ -115,102 +247,122 @@ export default function ExploreScreen() {
     setActiveFilters(filters);
   }, []);
 
-  const router = useRouter();
-
-  const renderItem = useCallback(({ item }: { item: ProfileHit }) => (
-    <ProfileCard
-      profile={item}
-      onPress={() => {
-        router.push(`/user-profile?id=${item.user_id}`);
-      }}
-    />
-  ), [router]);
-
-  const keyExtractor = useCallback((item: ProfileHit) => item.id.toString(), []);
-
-  const EmptyComponent = useCallback(() => {
-    if (loading) return null;
-    return (
-      <View style={styles.emptyContainer}>
-        <MaterialIcons
-          name={hasSearched ? 'search-off' : 'explore'}
-          size={64}
-          color={theme.icon}
-        />
-        <ThemedText style={[styles.emptyTitle, { color: theme.text }]}>
-          {hasSearched ? 'Aucun résultat' : 'Explorez des profils'}
-        </ThemedText>
-        <ThemedText style={[styles.emptySubtitle, { color: theme.icon }]}>
-          {hasSearched
-            ? 'Essayez de modifier votre recherche ou vos filtres'
-            : 'Recherchez par nom, intérêts ou localisation'}
-        </ThemedText>
-      </View>
-    );
-  }, [loading, hasSearched, theme]);
-
   const activeFilterCount = countActiveFilters(activeFilters);
 
-  const HeaderComponent = useCallback(() => (
-    <View style={styles.headerContainer}>
-      <Pressable
-        style={[styles.filterButton, { borderColor: theme.border }]}
-        onPress={() => setFilterModalVisible(true)}
-      >
-        <MaterialIcons name="tune" size={20} color={theme.text} />
-        <ThemedText style={styles.filterButtonText}>Filtres</ThemedText>
-        {activeFilterCount > 0 && (
-          <View style={[styles.filterBadge, { backgroundColor: theme.primary }]}>
-            <ThemedText style={styles.filterBadgeText}>{activeFilterCount}</ThemedText>
-          </View>
-        )}
-      </Pressable>
-
-      {hasSearched && !loading && (
-        <ThemedText style={[styles.resultsCount, { color: theme.icon }]}>
-          {results.length} profil{results.length !== 1 ? 's' : ''} trouvé{results.length !== 1 ? 's' : ''}
-        </ThemedText>
-      )}
-    </View>
-  ), [activeFilterCount, hasSearched, loading, results.length, theme]);
-
   return (
-    <ThemedView style={styles.container}>
-      <View style={[styles.topHeader, { borderBottomColor: theme.border }]}>
-        <ThemedText type="title" style={styles.title}>Explorer</ThemedText>
+    <View style={[styles.screen, { backgroundColor: colors.beige }]}>
+
+      {/* ── Header beige ─────────────────────────────────────────────────── */}
+      <View style={styles.header}>
+        <Text style={[styles.title, fontsLoaded ? { fontFamily: FontFamily.rocaBold } : {}, { color: colors.navy }]}>
+          Explorer
+        </Text>
         <SearchBar
           value={query}
           onChangeText={setQuery}
-          placeholder="Rechercher un profil..."
+          placeholder="Nom, ville, intérêt…"
           onSubmitEditing={() => performSearch(query, activeFilters)}
+          containerStyle={{ backgroundColor: colors.surface, borderColor: colors.border }}
         />
       </View>
 
-      <FlatList
-        data={results}
-        renderItem={renderItem}
-        keyExtractor={keyExtractor}
-        contentContainerStyle={styles.listContent}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-        ListHeaderComponent={HeaderComponent}
-        ListEmptyComponent={EmptyComponent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.primary}
-            colors={[theme.primary]}
-          />
-        }
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      />
+      {/* ── White card section ───────────────────────────────────────────── */}
+      <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
 
-      {loading && !refreshing && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color={theme.primary} />
+        {/* Filter + count row */}
+        <View style={styles.filterRow}>
+          <Pressable
+            style={[
+              styles.filterBtn,
+              {
+                borderColor: colors.secondary,
+                backgroundColor: activeFilterCount > 0 ? colors.secondary : 'transparent',
+              },
+            ]}
+            onPress={() => setFilterModalVisible(true)}
+          >
+            <MaterialIcons
+              name="tune"
+              size={15}
+              color={activeFilterCount > 0 ? '#FFFFFF' : colors.secondary}
+            />
+            <Text
+              style={[
+                styles.filterBtnText,
+                {
+                  color: activeFilterCount > 0 ? '#FFFFFF' : colors.secondary,
+                  fontFamily: FontFamily.mono,
+                },
+              ]}
+            >
+              {activeFilterCount > 0 ? `Filtres (${activeFilterCount})` : 'Filtres'}
+            </Text>
+          </Pressable>
+
+          {hasSearched && !loading && (
+            <Text style={[styles.resultsCount, { color: colors.textMuted, fontFamily: FontFamily.mono }]}>
+              {results.length} profil{results.length !== 1 ? 's' : ''}
+            </Text>
+          )}
         </View>
-      )}
+
+        {/* Grid */}
+        <FlatList
+          data={results}
+          keyExtractor={(item) => item.id.toString()}
+          numColumns={2}
+          columnWrapperStyle={styles.row}
+          contentContainerStyle={styles.gridContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          renderItem={({ item }) => (
+            <GridCard
+              profile={item}
+              fontsLoaded={fontsLoaded}
+              onPress={() => router.push(`/user-profile?id=${item.user_id}`)}
+            />
+          )}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
+          ListEmptyComponent={
+            loading ? null : (
+              <View style={styles.emptyContainer}>
+                <MaterialIcons
+                  name={hasSearched ? 'search-off' : 'explore'}
+                  size={56}
+                  color={colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.emptyTitle,
+                    { color: colors.navy },
+                    fontsLoaded ? { fontFamily: FontFamily.rocaRg } : {},
+                  ]}
+                >
+                  {hasSearched ? 'Aucun résultat' : 'Explorez des profils'}
+                </Text>
+                <Text style={[styles.emptySubtitle, { color: colors.textSecondary, fontFamily: FontFamily.mono }]}>
+                  {hasSearched
+                    ? 'Modifiez votre recherche ou vos filtres'
+                    : 'Recherchez par nom, ville ou intérêts'}
+                </Text>
+              </View>
+            )
+          }
+        />
+
+        {loading && !refreshing && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        )}
+      </View>
 
       <FilterModal
         visible={filterModalVisible}
@@ -218,67 +370,64 @@ export default function ExploreScreen() {
         onApply={handleApplyFilters}
         initialFilters={activeFilters}
       />
-    </ThemedView>
+    </View>
   );
 }
 
+// ── Styles ─────────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
   },
-  topHeader: {
-    paddingTop: 60,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    gap: 16,
-    borderBottomWidth: 1,
+  header: {
+    paddingTop: Platform.OS === 'ios' ? 72 : 52,
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+    gap: 14,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 38,
+    letterSpacing: -1,
   },
-  headerContainer: {
-    gap: 8,
-    paddingBottom: 8,
+  sheet: {
+    flex: 1,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingTop: 20,
   },
-  filterButton: {
+  filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
+    justifyContent: 'space-between',
+    paddingHorizontal: H_PAD,
+    marginBottom: 16,
+  },
+  filterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 14,
-    borderRadius: 12,
+    paddingVertical: 8,
+    borderRadius: 100,
     borderWidth: 1,
   },
-  filterButtonText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  filterBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  filterBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  filterBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   resultsCount: {
-    fontSize: 13,
-    marginTop: 4,
+    fontSize: 12,
   },
-  listContent: {
-    padding: 20,
-    paddingTop: 16,
+  gridContent: {
+    paddingHorizontal: H_PAD,
     paddingBottom: 100,
     flexGrow: 1,
   },
-  separator: {
-    height: 12,
+  row: {
+    gap: COL_GAP,
+    marginBottom: COL_GAP,
   },
   emptyContainer: {
     flex: 1,
@@ -289,19 +438,18 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: '600',
     textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     textAlign: 'center',
     paddingHorizontal: 40,
+    lineHeight: 20,
   },
   loadingOverlay: {
-    position: 'absolute',
-    top: 180,
-    left: 0,
-    right: 0,
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.6)',
   },
 });

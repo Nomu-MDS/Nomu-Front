@@ -1,5 +1,33 @@
 // Types pour le système de messagerie
 
+export type ReservationStatus = 'pending' | 'accepted' | 'declined';
+
+export interface Reservation {
+  id: number;
+  title: string;
+  status: ReservationStatus;
+  creator_id: number;
+  conversation_id: number;
+  price: number;
+  date: string;
+  end_date: string;
+  createdAt: string;
+}
+
+/** Format JSON embarqué dans le contenu d'un message de réservation */
+export interface ReservationMessagePayload {
+  __type: 'reservation';
+  id: number;
+  title: string;
+  price: number;
+  date: string;
+  end_date: string;
+  status: ReservationStatus;
+  creator_id: number;
+}
+
+
+
 export interface User {
   id: number;
   name: string;

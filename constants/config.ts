@@ -44,6 +44,11 @@ if (rawEnvBaseUrl && rawEnvBaseUrl.includes('localhost') && detectedBaseUrl && P
 
 export const API_BASE_URL: string = chosenEnvBaseUrl || extraBaseUrl || detectedBaseUrl || platformDefault || 'http://localhost:3001';
 
+/** Taux de commission Nomu appliqué au prix de base (10 %) */
+export const COMMISSION_RATE = 0.10;
+export const priceWithCommission = (base: number) => Math.round(base * (1 + COMMISSION_RATE) * 100) / 100;
+export const commissionAmount   = (base: number) => Math.round(base * COMMISSION_RATE * 100) / 100;
+
 if (__DEV__) {
   // Logging debug (une seule fois)
   // eslint-disable-next-line no-console
