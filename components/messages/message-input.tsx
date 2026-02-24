@@ -12,16 +12,18 @@ import {
   View,
 } from 'react-native';
 
-const BLUE = '#465E8A';
-const WHITE = '#FFFFFF';
+import { FontFamily } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 interface MessageInputProps {
   onSendMessage: (content: string, attachment: string | null) => void;
   onTyping: (isTyping: boolean) => void;
+  onReservationRequest?: () => void;
   disabled?: boolean;
 }
 
-export function MessageInput({ onSendMessage, onTyping, disabled = false }: MessageInputProps) {
+export function MessageInput({ onSendMessage, onTyping, onReservationRequest, disabled = false }: MessageInputProps) {
+  const { colors } = useTheme();
   const [message, setMessage] = useState('');
   const [attachment, setAttachment] = useState<string | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
@@ -105,31 +107,32 @@ export function MessageInput({ onSendMessage, onTyping, disabled = false }: Mess
           style={[
             styles.popup,
             { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+            { backgroundColor: colors.surface, borderColor: colors.secondary },
           ]}
         >
           <Pressable style={styles.popupOption} onPress={pickFromCamera}>
-            <View style={styles.popupIcon}>
-              <MaterialIcons name="camera-alt" size={18} color={WHITE} />
+            <View style={[styles.popupIcon, { backgroundColor: colors.secondary }]}>
+              <MaterialIcons name="camera-alt" size={18} color={colors.secondaryText} />
             </View>
-            <Text style={styles.popupText}>Appareil photo</Text>
+            <Text style={[styles.popupText, { color: colors.secondary }]}>Appareil photo</Text>
           </Pressable>
 
-          <View style={styles.popupSeparator} />
+          <View style={[styles.popupSeparator, { backgroundColor: colors.secondary }]} />
 
           <Pressable style={styles.popupOption} onPress={pickFromLibrary}>
-            <View style={styles.popupIcon}>
-              <MaterialIcons name="photo-library" size={18} color={WHITE} />
+            <View style={[styles.popupIcon, { backgroundColor: colors.secondary }]}>
+              <MaterialIcons name="photo-library" size={18} color={colors.secondaryText} />
             </View>
-            <Text style={styles.popupText}>Galerie</Text>
+            <Text style={[styles.popupText, { color: colors.secondary }]}>Galerie</Text>
           </Pressable>
 
-          <View style={styles.popupSeparator} />
+          <View style={[styles.popupSeparator, { backgroundColor: colors.secondary }]} />
 
-          <Pressable style={styles.popupOption} onPress={closeMenu}>
-            <View style={styles.popupIcon}>
-              <MaterialIcons name="calendar-today" size={18} color={WHITE} />
+          <Pressable style={styles.popupOption} onPress={() => { closeMenu(); onReservationRequest?.(); }}>
+            <View style={[styles.popupIcon, { backgroundColor: colors.secondary }]}>
+              <MaterialIcons name="calendar-today" size={18} color={colors.secondaryText} />
             </View>
-            <Text style={styles.popupText}>Réservation</Text>
+            <Text style={[styles.popupText, { color: colors.secondary }]}>Proposer une activité</Text>
           </Pressable>
         </Animated.View>
       )}
@@ -138,24 +141,28 @@ export function MessageInput({ onSendMessage, onTyping, disabled = false }: Mess
       {attachment && (
         <View style={styles.attachmentPreview}>
           <Image source={{ uri: attachment }} style={styles.previewImage} />
-          <Pressable style={styles.removeButton} onPress={() => setAttachment(null)} hitSlop={8}>
-            <MaterialIcons name="close" size={14} color={WHITE} />
+          <Pressable
+            style={[styles.removeButton, { backgroundColor: colors.secondary }]}
+            onPress={() => setAttachment(null)}
+            hitSlop={8}
+          >
+            <MaterialIcons name="close" size={14} color={colors.secondaryText} />
           </Pressable>
         </View>
       )}
 
       {/* Pill de saisie */}
-      <View style={styles.inputPill}>
+      <View style={[styles.inputPill, { borderColor: colors.secondary, backgroundColor: colors.surface }]}>
         <Pressable onPress={toggleMenu} disabled={disabled} style={styles.addButton} hitSlop={8}>
-          <View style={styles.addCircle}>
-            <MaterialIcons name="add" size={26} color={WHITE} />
+          <View style={[styles.addCircle, { backgroundColor: colors.secondary }]}>
+            <MaterialIcons name="add" size={26} color={colors.secondaryText} />
           </View>
         </Pressable>
 
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: colors.secondary, fontFamily: FontFamily.mono }]}
           placeholder="Type Message"
-          placeholderTextColor={BLUE}
+          placeholderTextColor={colors.secondary}
           value={message}
           onChangeText={handleTextChange}
           multiline
@@ -166,9 +173,9 @@ export function MessageInput({ onSendMessage, onTyping, disabled = false }: Mess
 
         {canSend && (
           <>
-            <View style={styles.divider} />
+            <View style={[styles.divider, { backgroundColor: colors.secondary }]} />
             <Pressable onPress={handleSend} style={styles.sendButton} hitSlop={8}>
-              <MaterialIcons name="send" size={20} color={BLUE} />
+              <MaterialIcons name="send" size={20} color={colors.secondary} />
             </Pressable>
           </>
         )}
@@ -188,10 +195,8 @@ const styles = StyleSheet.create({
   popup: {
     alignSelf: 'flex-start',
     marginLeft: 4,
-    backgroundColor: WHITE,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: BLUE,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -211,18 +216,15 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: BLUE,
     justifyContent: 'center',
     alignItems: 'center',
   },
   popupText: {
     fontSize: 14,
     fontWeight: '500',
-    color: BLUE,
   },
   popupSeparator: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: BLUE,
     opacity: 0.15,
     marginHorizontal: 14,
   },
@@ -244,7 +246,6 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: BLUE,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -255,16 +256,13 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 100,
     borderWidth: 1,
-    borderColor: BLUE,
     paddingHorizontal: 12,
     gap: 8,
-    backgroundColor: WHITE,
   },
   addCircle: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: BLUE,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -273,16 +271,13 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontFamily: Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' }),
     fontSize: 14,
-    color: BLUE,
     maxHeight: 44,
     paddingVertical: 0,
   },
   divider: {
     width: 1,
     height: 33,
-    backgroundColor: BLUE,
     opacity: 0.3,
     flexShrink: 0,
   },

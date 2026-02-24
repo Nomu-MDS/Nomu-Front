@@ -16,6 +16,7 @@ import {
 
 import { MessageBubble } from '@/components/messages/message-bubble';
 import { MessageInput } from '@/components/messages/message-input';
+import { ReservationModal } from '@/components/messages/reservation-modal';
 import { TypingIndicator } from '@/components/messages/typing-indicator';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -23,7 +24,7 @@ import { getToken } from '@/lib/session';
 import { decodeJwt } from '@/lib/jwt';
 import { getConversation, getMessages } from '@/services/api/conversations';
 import { connectSocket, getSocket } from '@/services/socket';
-import type { Message, User } from '@/types/message';
+import type { Message, Reservation, User } from '@/types/message';
 
 const BG_COLOR = '#E4DBCB';
 const BLUE = '#465E8A';
@@ -43,6 +44,7 @@ export default function ChatScreen() {
   const [otherUser, setOtherUser] = useState<User | null>(null);
   const [isOtherUserTyping, setIsOtherUserTyping] = useState(false);
   const [otherUserTypingName, setOtherUserTypingName] = useState('');
+  const [reservationModalVisible, setReservationModalVisible] = useState(false);
 
   const [fontsLoaded] = useFonts({
     'RocaOne-Rg': require('@/assets/fonts/roca/RocaOne-Rg.ttf'),
@@ -178,6 +180,23 @@ export default function ChatScreen() {
     socket.emit('typing', { conversation_id: conversationId, isTyping });
   };
 
+  const handleReservationCreated = (reservation: Reservation) => {
+    setReservationModalVisible(false);
+    const socket = getSocket();
+    if (!socket || !socket.connected) return;
+    const payload = JSON.stringify({
+      __type: 'reservation',
+      id: reservation.id,
+      title: reservation.title,
+      price: reservation.price,
+      date: reservation.date,
+      end_date: reservation.end_date,
+      status: reservation.status,
+      creator_id: reservation.creator_id,
+    });
+    socket.emit('send_message', { conversation_id: conversationId, content: payload, attachment: null });
+  };
+
   // Initiales de l'autre utilisateur
   const initials = otherUser
     ? otherUser.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
@@ -230,6 +249,8 @@ export default function ChatScreen() {
             <MessageBubble
               message={item}
               isCurrentUser={item.user_id === currentUserId}
+              currentUserId={currentUserId ?? 0}
+              otherUserName={otherUser?.name}
             />
           )}
           contentContainerStyle={styles.messagesList}
@@ -247,7 +268,18 @@ export default function ChatScreen() {
           }
         />
 
-        <MessageInput onSendMessage={handleSendMessage} onTyping={handleTyping} />
+        <MessageInput
+          onSendMessage={handleSendMessage}
+          onTyping={handleTyping}
+          onReservationRequest={() => setReservationModalVisible(true)}
+        />
+
+        <ReservationModal
+          visible={reservationModalVisible}
+          conversationId={conversationId}
+          onClose={() => setReservationModalVisible(false)}
+          onCreated={handleReservationCreated}
+        />
       </KeyboardAvoidingView>
     </View>
   );

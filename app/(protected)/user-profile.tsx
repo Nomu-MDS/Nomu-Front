@@ -1,15 +1,34 @@
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Button } from '@/components/ui/button';
-import { API_BASE_URL } from '@/constants/config';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { startConversation } from '@/lib/chat-helper';
-import { getToken } from '@/lib/session';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFonts } from 'expo-font';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+
+import { API_BASE_URL } from '@/constants/config';
+import { FontFamily } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+
+// Couleurs fixes du passeport — identiques en mode clair ET sombre
+const PASSPORT = {
+  card: '#FFFFFF',
+  title: '#465E8A',       // NOMU PASSPORT
+  navy: '#0E224A',        // tampon, numéros, labels
+  fieldValue: '#465E8A',  // valeurs des champs
+  fieldLabel: '#9EA3AE',  // labels atténués
+  separator: '#E8E8E8',
+};
+import { startConversation } from '@/lib/chat-helper';
+import { getToken } from '@/lib/session';
 
 interface Interest {
   id: number;
@@ -33,385 +52,523 @@ interface UserProfileResponse {
   profile: Profile;
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function passportNumber(id: number) {
+  const a = String((id * 73 + 17) % 900 + 100);
+  const b = String((id * 137 + 53) % 9000 + 1000);
+  const c = String((id * 31 + 7) % 90 + 10);
+  return `${a} ${b} ${c}`;
+}
+
+function docNumber(id: number, country?: string | null) {
+  const prefix = country ? country.slice(0, 2).toUpperCase() : 'NM';
+  return `${prefix}${String((id * 17) % 900 + 100)}`;
+}
+
+function stampDate() {
+  return new Date()
+    .toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+    .toUpperCase();
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function PassportField({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <View style={{ gap: 2 }}>
+      <Text style={{ fontSize: 11, color: PASSPORT.fieldLabel, fontFamily: FontFamily.mono, letterSpacing: 0.3 }}>
+        {label}
+      </Text>
+      <Text style={{ fontSize: 14, color: PASSPORT.fieldValue, fontFamily: FontFamily.mono, fontWeight: '700' }}>
+        {value || '—'}
+      </Text>
+    </View>
+  );
+}
+
+// ── Screen ────────────────────────────────────────────────────────────────────
+
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const { colors, shadows } = useTheme();
+
+  const [fontsLoaded] = useFonts({
+    'RocaOne-Rg': require('@/assets/fonts/roca/RocaOne-Rg.ttf'),
+    'RocaOne-Bold': require('@/assets/fonts/roca/RocaOne-Bold.ttf'),
+  });
+
   const [userProfile, setUserProfile] = useState<UserProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [contactLoading, setContactLoading] = useState(false);
-  const router = useRouter();
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
 
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (!id) {
-        setError('ID utilisateur manquant');
-        setLoading(false);
-        return;
-      }
+    (async () => {
+      if (!id) { setError('ID manquant'); setLoading(false); return; }
 
-      // Validation de l'ID (doit être un entier positif)
       const userId = parseInt(id, 10);
-      if (isNaN(userId) || userId <= 0) {
-        setError('ID utilisateur invalide');
-        setLoading(false);
-        return;
-      }
+      if (isNaN(userId) || userId <= 0) { setError('ID invalide'); setLoading(false); return; }
 
       try {
         const token = getToken();
-        if (!token) {
-          setError('Vous devez être connecté pour voir ce profil');
-          setLoading(false);
-          return;
-        }
+        if (!token) { setError('Vous devez être connecté'); setLoading(false); return; }
 
-        const url = `${API_BASE_URL}/users/${userId}`;
-        console.log('[UserProfile] GET ->', url);
-        
-        const response = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        const res = await fetch(`${API_BASE_URL}/users/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        console.log('/api/users/:id status:', response.status);
 
-        if (response.ok) {
-          const data: UserProfileResponse = await response.json();
-          console.log('/api/users/:id payload:', data);
-          setUserProfile(data);
-          setError(null);
+        if (res.ok) {
+          setUserProfile(await res.json());
         } else {
-          // Gestion des codes d'erreur selon la documentation
-          const errorData = await response.json().catch(() => ({ error: 'Erreur inconnue' }));
-          
-          if (response.status === 400) {
-            setError('ID utilisateur invalide');
-          } else if (response.status === 403) {
-            setError('Ce profil n\'est pas accessible (privé ou compte inactif)');
-          } else if (response.status === 404) {
-            setError('Utilisateur non trouvé');
-          } else if (response.status === 500) {
-            setError('Erreur serveur, veuillez réessayer plus tard');
-          } else {
-            setError(errorData.error || 'Erreur lors de la récupération du profil');
-          }
+          const body = await res.json().catch(() => ({}));
+          setError(
+            res.status === 403 ? 'Ce profil est privé'
+            : res.status === 404 ? 'Utilisateur non trouvé'
+            : body.error || 'Erreur inconnue',
+          );
         }
-      } catch (err) {
-        console.error('Erreur réseau ou API:', err);
-        setError('Erreur de connexion au serveur');
+      } catch {
+        setError('Erreur de connexion');
       } finally {
         setLoading(false);
       }
-    };
-
-    fetchUserProfile();
+    })();
   }, [id]);
 
-  const handleGoBack = () => {
-    router.back();
-  };
-
-  const handleContactUser = async () => {
+  const handleContact = async () => {
     if (!userProfile) return;
-
     setContactLoading(true);
     try {
-      console.log('[UserProfile] Démarrage conversation avec user ID:', userProfile.id);
-      const conversationId = await startConversation(userProfile.id);
-      console.log('[UserProfile] Conversation créée/récupérée:', conversationId);
-      router.push(`/chat/${conversationId}`);
-    } catch (error: any) {
-      console.error('[UserProfile] Erreur:', error);
-
-      if (error.message.includes('Only travelers')) {
-        Alert.alert(
-          'Non autorisé',
-          'Seuls les voyageurs peuvent initier des conversations avec les locaux.'
-        );
-      } else if (error.message.includes('Token manquant')) {
-        Alert.alert('Non connecté', 'Vous devez être connecté pour envoyer des messages');
+      const convId = await startConversation(userProfile.id);
+      router.push(`/chat/${convId}`);
+    } catch (err: any) {
+      if (err.message?.includes('Only travelers')) {
+        Alert.alert('Non autorisé', 'Seuls les voyageurs peuvent initier des conversations.');
+      } else if (err.message?.includes('Token manquant')) {
+        Alert.alert('Non connecté', 'Vous devez être connecté.');
         router.push('/login');
       } else {
-        Alert.alert('Erreur', error.message || 'Impossible de démarrer la conversation');
+        Alert.alert('Erreur', err.message || 'Impossible de démarrer la conversation');
       }
     } finally {
       setContactLoading(false);
     }
   };
 
-  if (loading) {
+  // ── Loading ────────────────────────────────────────────────────────────────
+
+  if (loading || !fontsLoaded) {
     return (
-      <ThemedView style={styles.container}>
-        <ActivityIndicator size="large" color={theme.primary} />
-      </ThemedView>
+      <View style={[styles.screen, { backgroundColor: colors.beige, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.secondary} />
+      </View>
     );
   }
 
-  if (error) {
+  // ── Error ──────────────────────────────────────────────────────────────────
+
+  if (error || !userProfile) {
     return (
-      <ThemedView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <MaterialIcons name="error-outline" size={64} color={theme.icon} />
-          <ThemedText style={styles.errorText}>{error}</ThemedText>
-          <Pressable
-            style={[styles.backButton, { backgroundColor: theme.primary }]}
-            onPress={handleGoBack}
-          >
-            <ThemedText style={styles.backButtonText}>Retour</ThemedText>
+      <View style={[styles.screen, { backgroundColor: colors.beige }]}>
+        <View style={styles.topBar}>
+          <Pressable onPress={() => router.back()} hitSlop={12}>
+            <MaterialIcons name="arrow-back" size={22} color={colors.secondary} />
+          </Pressable>
+          <Text style={[styles.pageTitle, { color: colors.secondary, fontFamily: FontFamily.rocaBold }]}>
+            Profil
+          </Text>
+          <View style={{ width: 22 }} />
+        </View>
+        <View style={[styles.passportCard, { backgroundColor: PASSPORT.card, justifyContent: 'center', alignItems: 'center', gap: 16 }, shadows.md]}>
+          <MaterialIcons name="error-outline" size={52} color={colors.textMuted} />
+          <Text style={[styles.errorTitle, { color: colors.heading, fontFamily: FontFamily.rocaRg }]}>
+            Profil introuvable
+          </Text>
+          <Text style={[styles.errorBody, { color: colors.textSecondary, fontFamily: FontFamily.mono }]}>
+            {error || 'Impossible de charger ce profil'}
+          </Text>
+          <Pressable style={[styles.contactBtn, { backgroundColor: colors.primary }]} onPress={() => router.back()}>
+            <Text style={[styles.contactBtnText, { fontFamily: FontFamily.mono }]}>Retour</Text>
           </Pressable>
         </View>
-      </ThemedView>
+      </View>
     );
   }
 
-  if (!userProfile) {
-    return null;
-  }
+  // ── Data ───────────────────────────────────────────────────────────────────
 
   const { profile } = userProfile;
-  const displayName = profile.first_name && profile.last_name 
-    ? `${profile.first_name} ${profile.last_name}` 
-    : 'Utilisateur';
-  const initials = displayName
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+
+  const pNum = passportNumber(profile.id);
+  const dNum = docNumber(profile.id, profile.country);
+  const city = profile.city?.toUpperCase() || 'PARIS';
+  const passportType = profile.country?.slice(0, 1).toUpperCase() || 'X';
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <ThemedView style={styles.container}>
-      {/* Header avec bouton retour */}
-      <View style={styles.topBar}>
-        <Pressable onPress={handleGoBack} hitSlop={8}>
-          <MaterialIcons name="arrow-back" size={24} color={theme.text} />
-        </Pressable>
-        <ThemedText type="subtitle">Profil</ThemedText>
-        <View style={{ width: 24 }} />
-      </View>
-
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
+    <View style={[styles.screen, { backgroundColor: colors.beige }]}>
+      <ScrollView
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* Header avec photo */}
-        <View style={styles.header}>
-          <View style={styles.avatarContainer}>
-            {profile.image_url ? (
-              <Image source={{ uri: profile.image_url }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary }]}>
-                <ThemedText style={styles.initials}>{initials}</ThemedText>
-              </View>
-            )}
-          </View>
-
-          <ThemedText type="title" style={styles.name}>{displayName}</ThemedText>
+        {/* ── Top bar ───────────────────────────────────────────────────── */}
+        <View style={styles.topBar}>
+          <Pressable onPress={() => router.back()} hitSlop={12}>
+            <MaterialIcons name="arrow-back" size={22} color={colors.secondary} />
+          </Pressable>
+          <Text style={[styles.pageTitle, { color: colors.secondary, fontFamily: FontFamily.rocaBold }]}>
+            Profil
+          </Text>
+          <View style={{ width: 22 }} />
         </View>
 
-        {/* Informations du profil */}
-        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.cardHeader}>
-            <ThemedText type="subtitle" style={styles.cardTitle}>Informations</ThemedText>
-          </View>
+        {/* ── Passport card ─────────────────────────────────────────────── */}
+        <View style={[styles.passportCard, { backgroundColor: PASSPORT.card }, shadows.md]}>
 
-          <View style={styles.infoRow}>
-            <MaterialIcons name="person" size={20} color={theme.icon} />
-            <View style={styles.infoContent}>
-              <ThemedText style={[styles.infoLabel, { color: theme.icon }]}>Nom complet</ThemedText>
-              <ThemedText style={styles.infoValue}>{displayName}</ThemedText>
+          {/* Header: NOMU PASSPORT + stamp */}
+          <View style={styles.passportHeader}>
+            <View>
+              <Text style={[styles.passportTitle, { color: PASSPORT.title, fontFamily: FontFamily.mono }]}>
+                {'NOMU PASS'}
+                <Text style={{ textDecorationLine: 'underline' }}>PORT</Text>
+              </Text>
+            </View>
+
+            {/* Stamp circulaire */}
+            <View style={[styles.stamp, { borderColor: PASSPORT.navy }]}>
+              <Text style={[styles.stampLine, styles.stampCityText, { color: PASSPORT.navy, fontFamily: FontFamily.mono }]}>
+                {city}
+              </Text>
+              <Text style={[styles.stampLine, styles.stampDateText, { color: PASSPORT.navy, fontFamily: FontFamily.mono }]}>
+                {stampDate()}
+              </Text>
+              <Text style={[styles.stampLine, styles.stampSmall, { color: PASSPORT.navy, fontFamily: FontFamily.mono }]}>
+                {'CHARLES DE GAULLE\nAIRPORT'}
+              </Text>
+              <Text style={[styles.stampLine, styles.stampSmall, { color: PASSPORT.navy, fontFamily: FontFamily.mono }]}>
+                FRENCH REPUBLIC
+              </Text>
             </View>
           </View>
 
-          {(profile.city || profile.country) && (
-            <View style={styles.infoRow}>
-              <MaterialIcons name="location-on" size={20} color={theme.icon} />
-              <View style={styles.infoContent}>
-                <ThemedText style={[styles.infoLabel, { color: theme.icon }]}>Localisation</ThemedText>
-                <ThemedText style={styles.infoValue}>
-                  {profile.city && profile.country 
-                    ? `${profile.city}, ${profile.country}` 
-                    : profile.city || profile.country}
-                </ThemedText>
-              </View>
-            </View>
-          )}
+          {/* Separator */}
+          <View style={[styles.separator, { backgroundColor: PASSPORT.separator }]} />
 
-          {profile.biography && (
-            <View style={styles.infoRow}>
-              <MaterialIcons name="info-outline" size={20} color={theme.icon} />
-              <View style={styles.infoContent}>
-                <ThemedText style={[styles.infoLabel, { color: theme.icon }]}>Bio</ThemedText>
-                <ThemedText style={styles.infoValue}>{profile.biography}</ThemedText>
-              </View>
-            </View>
-          )}
+          {/* Corps du passeport */}
+          <View style={styles.passportBody}>
 
-          {profile.age && (
-            <View style={styles.infoRow}>
-              <MaterialIcons name="cake" size={20} color={theme.icon} />
-              <View style={styles.infoContent}>
-                <ThemedText style={[styles.infoLabel, { color: theme.icon }]}>Âge</ThemedText>
-                <ThemedText style={styles.infoValue}>{profile.age} ans</ThemedText>
-              </View>
+            {/* Colonne gauche : numéro doc + photo */}
+            <View style={styles.leftCol}>
+              <Text style={[styles.docNum, { color: PASSPORT.navy, fontFamily: FontFamily.mono }]}>
+                {dNum}
+              </Text>
+              <Text style={[styles.docTypeLabel, { color: PASSPORT.navy, fontFamily: FontFamily.rocaBold }]}>
+                Passeport
+              </Text>
+
+              {/* Photo ou placeholder */}
+              <Image
+                source={{
+                  uri: profile.image_url ?? `https://i.pravatar.cc/300?u=${profile.id}`,
+                }}
+                style={styles.passportPhoto}
+                resizeMode="cover"
+              />
             </View>
-          )}
+
+            {/* Colonne droite : champs */}
+            <View style={styles.rightCol}>
+              <PassportField label="Surname" value={profile.last_name} />
+              <PassportField label="First name" value={profile.first_name} />
+              <PassportField label="Nationality" value={profile.country} />
+              <PassportField
+                label="Date of birth"
+                value={profile.age ? `${new Date().getFullYear() - profile.age}` : null}
+              />
+              <PassportField label="Type" value={passportType} />
+            </View>
+
+          </View>
+
+          {/* Numéro vertical — texte tourné, début en bas */}
+          <View style={styles.verticalNumContainer} pointerEvents="none">
+            <Text style={[styles.verticalNum, { color: PASSPORT.navy, fontFamily: FontFamily.mono }]}>
+              {`Passport Number : ${pNum}`}
+            </Text>
+          </View>
         </View>
 
-        {/* Centres d'intérêt */}
-        {profile.interests && profile.interests.length > 0 && (
-          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={styles.cardHeader}>
-              <ThemedText type="subtitle" style={styles.cardTitle}>Centres d'intérêt</ThemedText>
-            </View>
-            <View style={styles.interestsContainer}>
-              {profile.interests.map((interest) => (
-                <View
-                  key={interest.id}
-                  style={[styles.interestBadge, { backgroundColor: theme.primary + '20', borderColor: theme.primary }]}
-                >
-                  <ThemedText style={[styles.interestText, { color: theme.primary }]}>
-                    {interest.name}
-                  </ThemedText>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
+        {/* ── Section sombre ────────────────────────────────────────────── */}
+        <View style={[styles.darkSection, { backgroundColor: colors.navy, flex: 1 }]}>
 
-        {/* Bouton Contacter */}
-        <View style={styles.contactButtonContainer}>
-          <Button
-            label={contactLoading ? 'Chargement...' : 'Envoyer un message'}
-            onPress={handleContactUser}
-            disabled={contactLoading}
-          />
+          {profile.biography ? (
+            <View style={styles.darkBlock}>
+              <Text style={[styles.darkTitle, { color: colors.beige, fontFamily: fontsLoaded ? FontFamily.rocaRg : undefined }]}>
+                À propos
+              </Text>
+              <Text style={[styles.darkBody, { color: '#ECEDEE', fontFamily: FontFamily.mono }]}>
+                {profile.biography}
+              </Text>
+            </View>
+          ) : null}
+
+          {profile.interests && profile.interests.length > 0 ? (
+            <View style={styles.darkBlock}>
+              <Text style={[styles.darkTitle, { color: colors.beige, fontFamily: fontsLoaded ? FontFamily.rocaRg : undefined }]}>
+                Intérêts
+              </Text>
+              <View style={styles.tagsRow}>
+                {profile.interests.map((interest) => (
+                  <View
+                    key={interest.id}
+                    style={[styles.darkTag, { borderColor: 'rgba(228,219,203,0.4)' }]}
+                  >
+                    <Text style={[styles.darkTagText, { color: colors.beige, fontFamily: FontFamily.mono }]}>
+                      {interest.name}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
         </View>
       </ScrollView>
-    </ThemedView>
+
+      {/* ── Bouton Contacter fixe ──────────────────────────────────────── */}
+      <View style={[styles.fixedFooter, { backgroundColor: colors.navy }]}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.contactBtn,
+            { backgroundColor: colors.primary },
+            shadows.md,
+            pressed && { opacity: 0.88, transform: [{ scale: 0.99 }] },
+            contactLoading && { opacity: 0.7 },
+          ]}
+          onPress={handleContact}
+          disabled={contactLoading}
+        >
+          <MaterialIcons
+            name={contactLoading ? 'hourglass-empty' : 'chat-bubble-outline'}
+            size={18}
+            color="#FFFFFF"
+          />
+          <Text style={[styles.contactBtnText, { fontFamily: FontFamily.mono }]}>
+            {contactLoading ? 'Chargement…' : 'Contacter'}
+          </Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
+// ── Styles ─────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+  },
+
+  // ── Top bar ────────────────────────────────────────────────────────────
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'ios' ? 72 : 52,
     paddingBottom: 16,
   },
-  scrollContent: {
+  pageTitle: {
+    fontSize: 26,
+    letterSpacing: -0.5,
+  },
+
+  // ── Passport card ──────────────────────────────────────────────────────
+  passportCard: {
+    marginHorizontal: 16,
+    borderRadius: 28,
     padding: 20,
-    paddingTop: 20,
-    paddingBottom: 40,
-    gap: 20,
+    paddingRight: 28, // espace pour le numéro vertical
+    paddingBottom: 24,
   },
-  header: {
+
+  passportHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  avatarContainer: {
-    marginBottom: 8,
+  passportTitle: {
+    fontSize: 20,
+    letterSpacing: 2,
   },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+
+  // Stamp
+  stamp: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 6,
+    gap: 1,
   },
-  avatarPlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+  stampLine: {
+    textAlign: 'center',
+  },
+  stampCityText: {
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  stampDateText: {
+    fontSize: 8,
+    fontWeight: '600',
+  },
+  stampSmall: {
+    fontSize: 6,
+    letterSpacing: 0.3,
+    textAlign: 'center',
+  },
+
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    marginBottom: 16,
+  },
+
+  // Body
+  passportBody: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+
+  // Left column
+  leftCol: {
+    width: '42%',
+    gap: 4,
+  },
+  docNum: {
+    fontSize: 12,
+    letterSpacing: 0.5,
+  },
+  docTypeLabel: {
+    fontSize: 13,
+    marginBottom: 6,
+  },
+  passportPhoto: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+    borderRadius: 12,
+  },
+
+  // Right column
+  rightCol: {
+    flex: 1,
+    gap: 14,
+    paddingTop: 28,
+  },
+
+  // Vertical passport number — texte rotaté -90deg, début en bas
+  verticalNumContainer: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  initials: {
-    fontSize: 40,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  verticalNum: {
+    fontSize: 8,
+    letterSpacing: 0.6,
+    transform: [{ rotate: '-90deg' }],
+    width: 220,
+    textAlign: 'left',
   },
-  name: {
-    fontSize: 24,
-    fontWeight: '700',
-    textAlign: 'center',
+
+  // ── Dark section ────────────────────────────────────────────────────────
+  darkSection: {
+    marginTop: 12,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 28,
+    paddingHorizontal: 24,
+    paddingBottom: Platform.OS === 'ios' ? 120 : 100,
+    // pas d'overflow: hidden
+
   },
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
+  darkBlock: {
+    marginBottom: 24,
     gap: 12,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
+  darkTitle: {
+    fontSize: 18,
+    letterSpacing: -0.3,
   },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+  darkBody: {
+    fontSize: 14,
+    lineHeight: 22,
+    letterSpacing: -0.2,
+    opacity: 0.9,
   },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  infoContent: {
-    flex: 1,
-    gap: 2,
-  },
-  infoLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  infoValue: {
-    fontSize: 15,
-  },
-  interestsContainer: {
+  tagsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  interestBadge: {
+  darkTag: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
+    borderRadius: 6,
+    borderWidth: 0.5,
   },
-  interestText: {
+  darkTagText: {
     fontSize: 13,
-    fontWeight: '500',
+    letterSpacing: -0.2,
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  fixedFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 20,
+  },
+
+  // ── Contact button ──────────────────────────────────────────────────────
+  contactBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
-    gap: 16,
+    justifyContent: 'center',
+    gap: 8,
+    height: 54,
+    borderRadius: 34,
   },
-  errorText: {
+  contactBtnText: {
+    color: '#FFFFFF',
     fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+
+  // ── Error ───────────────────────────────────────────────────────────────
+  errorTitle: {
+    fontSize: 20,
     textAlign: 'center',
   },
-  backButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  backButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 15,
-  },
-  contactButtonContainer: {
-    marginTop: 8,
+  errorBody: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

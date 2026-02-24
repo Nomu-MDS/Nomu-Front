@@ -1,21 +1,44 @@
 import React from 'react';
-import { Image, Platform, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
-import type { Message } from '@/types/message';
-
-const RECEIVED_BG = 'rgba(60,60,59,0.41)';
-const SENT_BG = '#3c3c3b';
-const TEXT_COLOR = '#3c3c3b';
-const SENT_TEXT_COLOR = '#FFFFFF';
-const TIMESTAMP_COLOR = '#3c3c3b';
-const MONO = Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' });
+import { ReservationBubble } from '@/components/messages/reservation-bubble';
+import { FontFamily } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+import type { Message, ReservationMessagePayload } from '@/types/message';
 
 interface MessageBubbleProps {
   message: Message;
   isCurrentUser: boolean;
+  currentUserId: number;
+  otherUserName?: string;
 }
 
-export function MessageBubble({ message, isCurrentUser }: MessageBubbleProps) {
+function parseReservation(content: string): ReservationMessagePayload | null {
+  try {
+    if (!content.startsWith('{"__type":"reservation"')) return null;
+    const parsed = JSON.parse(content);
+    if (parsed.__type === 'reservation') return parsed as ReservationMessagePayload;
+  } catch {
+    // not a reservation
+  }
+  return null;
+}
+
+export function MessageBubble({ message, isCurrentUser, currentUserId, otherUserName }: MessageBubbleProps) {
+  const { colors } = useTheme();
+
+  const reservation = parseReservation(message.content);
+  if (reservation) {
+    return (
+      <ReservationBubble
+        data={reservation}
+        currentUserId={currentUserId}
+        createdAt={message.createdAt}
+        otherUserName={otherUserName}
+      />
+    );
+  }
+
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     const m = date.getMinutes().toString().padStart(2, '0');
@@ -26,7 +49,12 @@ export function MessageBubble({ message, isCurrentUser }: MessageBubbleProps) {
 
   return (
     <View style={[styles.wrapper, isCurrentUser ? styles.wrapperSent : styles.wrapperReceived]}>
-      <View style={[styles.bubble, isCurrentUser ? styles.bubbleSent : styles.bubbleReceived]}>
+      <View
+        style={[
+          styles.bubble,
+          { backgroundColor: isCurrentUser ? colors.messageSent : colors.messageReceived },
+        ]}
+      >
         {message.attachment && (
           <Image
             source={{ uri: message.attachment }}
@@ -35,13 +63,24 @@ export function MessageBubble({ message, isCurrentUser }: MessageBubbleProps) {
           />
         )}
         {message.content ? (
-          <Text style={[styles.content, { color: isCurrentUser ? SENT_TEXT_COLOR : TEXT_COLOR }]}>
+          <Text
+            style={[
+              styles.content,
+              { color: isCurrentUser ? colors.messageSentText : colors.messageReceivedText },
+            ]}
+          >
             {message.content}
           </Text>
         ) : null}
       </View>
 
-      <Text style={[styles.timestamp, isCurrentUser ? styles.timestampRight : styles.timestampLeft]}>
+      <Text
+        style={[
+          styles.timestamp,
+          isCurrentUser ? styles.timestampRight : styles.timestampLeft,
+          { color: colors.body },
+        ]}
+      >
         {formatTime(message.createdAt)}
         {isCurrentUser ? (message.read ? '  ✓✓' : '  ✓') : ''}
       </Text>
@@ -67,14 +106,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
-  bubbleReceived: {
-    backgroundColor: RECEIVED_BG,
-  },
-  bubbleSent: {
-    backgroundColor: SENT_BG,
-  },
   content: {
-    fontFamily: MONO,
+    fontFamily: FontFamily.mono,
     fontSize: 12,
     letterSpacing: -0.24,
     lineHeight: 18,
@@ -86,9 +119,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   timestamp: {
-    fontFamily: Platform.select({ ios: 'System', android: 'normal', default: 'normal' }),
+    fontFamily: FontFamily.system,
     fontSize: 11,
-    color: TIMESTAMP_COLOR,
     opacity: 0.7,
     letterSpacing: -0.22,
   },
