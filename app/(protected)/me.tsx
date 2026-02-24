@@ -1,14 +1,25 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { useFonts } from 'expo-font';
+import { useRouter } from 'expo-router';
+import { useEffect, useState, type ReactNode } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+
 import { API_BASE_URL } from '@/constants/config';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { FontFamily } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { decodeJwt } from '@/lib/jwt';
 import { clearToken, getToken } from '@/lib/session';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+
+// ── Types ──────────────────────────────────────────────────────────────────────
 
 interface Profile {
   id: number;
@@ -33,75 +44,117 @@ interface User {
   Profile?: Profile;
 }
 
+// ── Settings row ───────────────────────────────────────────────────────────────
+
+function SettingsRow({
+  icon,
+  label,
+  sublabel,
+  onPress,
+  danger = false,
+  right,
+}: {
+  icon: React.ComponentProps<typeof MaterialIcons>['name'];
+  label: string;
+  sublabel?: string;
+  onPress?: () => void;
+  danger?: boolean;
+  right?: ReactNode;
+}) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.settingsRow, pressed && { opacity: 0.7 }]}
+      onPress={onPress}
+    >
+      <View
+        style={[
+          styles.settingsIcon,
+          { backgroundColor: danger ? 'rgba(239,68,68,0.1)' : colors.tagBackground },
+        ]}
+      >
+        <MaterialIcons
+          name={icon}
+          size={18}
+          color={danger ? '#EF4444' : colors.secondary}
+        />
+      </View>
+
+      <View style={styles.settingsLabelGroup}>
+        <Text
+          style={[
+            styles.settingsLabel,
+            { color: danger ? '#EF4444' : colors.navy, fontFamily: FontFamily.mono },
+          ]}
+        >
+          {label}
+        </Text>
+        {sublabel && (
+          <Text style={[styles.settingsSublabel, { color: colors.textMuted, fontFamily: FontFamily.mono }]}>
+            {sublabel}
+          </Text>
+        )}
+      </View>
+
+      {right ?? (!danger && (
+        <MaterialIcons name="chevron-right" size={20} color={colors.textMuted} />
+      ))}
+    </Pressable>
+  );
+}
+
+// ── Screen ─────────────────────────────────────────────────────────────────────
+
 export default function MeScreen() {
+  const router = useRouter();
+  const { colors, shadows } = useTheme();
+
+  const [fontsLoaded] = useFonts({
+    'RocaOne-Rg': require('@/assets/fonts/roca/RocaOne-Rg.ttf'),
+    'RocaOne-Bold': require('@/assets/fonts/roca/RocaOne-Bold.ttf'),
+  });
+
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
 
   useEffect(() => {
-    const fetchUser = async () => {
+    (async () => {
       try {
         const token = getToken();
-        console.log('API_BASE_URL:', API_BASE_URL);
-        console.log('Token present for /users/me:', !!token);
-        if (!token) {
-          router.push('/login');
-          return;
-        }
-        const url = `${API_BASE_URL}/users/me`;
-        console.log('[Me] GET ->', url);
-        const response = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        if (!token) { router.replace('/login'); return; }
+
+        const res = await fetch(`${API_BASE_URL}/users/me`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        console.log('/users/me status:', response.status);
-        if (response.ok) {
-          const data = await response.json();
-          console.log('/users/me payload:', data);
-          setUser(data);
-        } else {
-          if (response.status === 401) {
-            // Token expiré ou invalide - redirection silencieuse
-            console.log('[Me] Token expiré, redirection vers login');
-            await clearToken();
-            router.replace('/login');
-            return;
-          }
-          if (response.status === 404) {
-            console.warn('[Me] 404 /users/me -> fallback sur claims du token.');
-            const rawToken = getToken();
-            const claims = rawToken ? decodeJwt(rawToken) : null;
-            if (claims) {
-              const fallbackUser: User = {
-                id: 0,
-                name: (claims.name as string) || 'Utilisateur',
-                email: (claims.email as string) || '—',
-                role: (claims.role as string) || 'user',
-                bio: null,
-                location: null,
-              };
-              setUser(fallbackUser);
-              return;
-            }
-          }
-          // Autres erreurs - redirection silencieuse
+
+        if (res.ok) {
+          setUser(await res.json());
+        } else if (res.status === 401) {
           await clearToken();
           router.replace('/login');
-          return;
+        } else if (res.status === 404) {
+          const claims = decodeJwt(token);
+          if (claims) {
+            setUser({
+              id: 0,
+              name: (claims.name as string) || 'Utilisateur',
+              email: (claims.email as string) || '—',
+              role: (claims.role as string) || 'user',
+              bio: null,
+              location: null,
+            });
+          }
+        } else {
+          await clearToken();
+          router.replace('/login');
         }
-      } catch (error) {
-        console.log('[Me] Erreur réseau, redirection vers login');
+      } catch {
         await clearToken();
         router.replace('/login');
       } finally {
         setLoading(false);
       }
-    };
-
-    fetchUser();
+    })();
   }, [router]);
 
   const handleLogout = async () => {
@@ -109,296 +162,392 @@ export default function MeScreen() {
     router.replace('/login');
   };
 
-  const handleEditProfile = () => {
-    router.push('/edit-profile');
-  };
+  // ── Loading ──────────────────────────────────────────────────────────────────
 
-  if (loading) {
+  if (loading || !fontsLoaded) {
     return (
-      <ThemedView style={styles.container}>
-        <ActivityIndicator size="large" color={theme.primary} />
-      </ThemedView>
+      <View style={[styles.screen, { backgroundColor: colors.beige, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.secondary} />
+      </View>
     );
   }
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
+
+  // ── Data ─────────────────────────────────────────────────────────────────────
 
   const profile = user.Profile;
-  const displayName = profile?.first_name && profile?.last_name 
-    ? `${profile.first_name} ${profile.last_name}` 
-    : user.name;
+  const displayName =
+    [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || user.name;
   const initials = displayName
     .split(' ')
     .map((n) => n[0])
     .join('')
     .toUpperCase()
     .slice(0, 2);
+  const location =
+    profile?.city && profile?.country
+      ? `${profile.city}, ${profile.country}`
+      : profile?.city || profile?.country || user.location || null;
+  const imageUri =
+    profile?.image_url ?? (user.id > 0 ? `https://i.pravatar.cc/300?u=${user.id}` : null);
+  const roleLabel =
+    user.role === 'local' ? 'Local' : user.role === 'voyager' ? 'Voyageur' : user.role;
+
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header avec photo et bouton éditer */}
-        <View style={styles.header}>
-          <View style={styles.avatarContainer}>
-            {profile?.image_url ? (
-              <Image source={{ uri: profile.image_url }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary }]}>
-                <ThemedText style={styles.initials}>{initials}</ThemedText>
-              </View>
-            )}
-            <Pressable
-              style={[styles.editBadge, { backgroundColor: theme.surface, borderColor: theme.border }]}
-              onPress={handleEditProfile}
-              hitSlop={8}
-            >
-              <MaterialIcons name="edit" size={16} color={theme.text} />
-            </Pressable>
-          </View>
+    <View style={[styles.screen, { backgroundColor: colors.beige }]}>
 
-          <ThemedText type="title" style={styles.name}>{displayName}</ThemedText>
-          <ThemedText style={[styles.email, { color: theme.icon }]}>{user.email}</ThemedText>
-        </View>
-
-        {/* Informations du profil */}
-        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.cardHeader}>
-            <ThemedText type="subtitle" style={styles.cardTitle}>Informations</ThemedText>
-          </View>
-
-          <View style={styles.infoRow}>
-            <MaterialIcons name="person" size={20} color={theme.icon} />
-            <View style={styles.infoContent}>
-              <ThemedText style={[styles.infoLabel, { color: theme.icon }]}>Nom complet</ThemedText>
-              <ThemedText style={styles.infoValue}>{displayName}</ThemedText>
-            </View>
-          </View>
-
-          {(profile?.city || profile?.country || user.location) && (
-            <View style={styles.infoRow}>
-              <MaterialIcons name="location-on" size={20} color={theme.icon} />
-              <View style={styles.infoContent}>
-                <ThemedText style={[styles.infoLabel, { color: theme.icon }]}>Localisation</ThemedText>
-                <ThemedText style={styles.infoValue}>
-                  {profile?.city && profile?.country 
-                    ? `${profile.city}, ${profile.country}` 
-                    : profile?.city || profile?.country || user.location}
-                </ThemedText>
-              </View>
-            </View>
-          )}
-
-          {(profile?.biography || user.bio) && (
-            <View style={styles.infoRow}>
-              <MaterialIcons name="info-outline" size={20} color={theme.icon} />
-              <View style={styles.infoContent}>
-                <ThemedText style={[styles.infoLabel, { color: theme.icon }]}>Bio</ThemedText>
-                <ThemedText style={styles.infoValue}>{profile?.biography || user.bio}</ThemedText>
-              </View>
-            </View>
-          )}
-
-          {profile?.age && (
-            <View style={styles.infoRow}>
-              <MaterialIcons name="cake" size={20} color={theme.icon} />
-              <View style={styles.infoContent}>
-                <ThemedText style={[styles.infoLabel, { color: theme.icon }]}>Âge</ThemedText>
-                <ThemedText style={styles.infoValue}>{profile.age} ans</ThemedText>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Centres d'intérêt */}
-        {profile?.Interests && profile.Interests.length > 0 && (
-          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={styles.cardHeader}>
-              <ThemedText type="subtitle" style={styles.cardTitle}>Centres d'intérêt</ThemedText>
-            </View>
-            <View style={styles.interestsContainer}>
-              {profile.Interests.map((interest) => (
-                <View
-                  key={interest.id}
-                  style={[styles.interestBadge, { backgroundColor: theme.primary + '20', borderColor: theme.primary }]}
-                >
-                  <ThemedText style={[styles.interestText, { color: theme.primary }]}>
-                    {interest.name}
-                  </ThemedText>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Statut de visibilité */}
-        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.cardHeader}>
-            <ThemedText type="subtitle" style={styles.cardTitle}>Visibilité</ThemedText>
-          </View>
-          <View style={styles.visibilityRow}>
-            <MaterialIcons 
-              name={profile?.is_searchable ? 'visibility' : 'visibility-off'} 
-              size={20} 
-              color={profile?.is_searchable ? theme.primary : theme.icon} 
-            />
-            <ThemedText style={styles.visibilityText}>
-              {profile?.is_searchable 
-                ? 'Votre profil est visible dans les recherches' 
-                : 'Votre profil est masqué des recherches'}
-            </ThemedText>
-          </View>
-        </View>
-
-        {/* Bouton déconnexion */}
-        <Pressable
-          style={[styles.logoutButton, { borderColor: '#EF4444' }]}
-          onPress={handleLogout}
+      {/* ── Top bar ─────────────────────────────────────────────────────────── */}
+      <View style={styles.topBar}>
+        <Text
+          style={[
+            styles.pageTitle,
+            fontsLoaded ? { fontFamily: FontFamily.rocaBold } : {},
+            { color: colors.navy },
+          ]}
         >
-          <MaterialIcons name="logout" size={20} color="#EF4444" />
-          <ThemedText style={styles.logoutText}>Se déconnecter</ThemedText>
+          Mon Profil
+        </Text>
+        <Pressable
+          style={[styles.editBtn, { backgroundColor: colors.secondary }]}
+          onPress={() => router.push('/edit-profile')}
+          hitSlop={8}
+        >
+          <MaterialIcons name="edit" size={15} color="#FFFFFF" />
+          <Text style={[styles.editBtnLabel, { fontFamily: FontFamily.mono }]}>Modifier</Text>
         </Pressable>
-      </ScrollView>
-    </ThemedView>
+      </View>
+
+      {/* ── White card ──────────────────────────────────────────────────────── */}
+      <View style={[styles.card, { backgroundColor: colors.surface }]}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+
+          {/* Hero */}
+          <View style={styles.hero}>
+            <View style={[styles.avatarRing, { borderColor: colors.separator }, shadows.md]}>
+              {imageUri ? (
+                <Image source={{ uri: imageUri }} style={styles.avatar} resizeMode="cover" />
+              ) : (
+                <View style={[styles.avatarFallback, { backgroundColor: colors.secondary }]}>
+                  <Text style={[styles.initials, { fontFamily: FontFamily.rocaBold }]}>
+                    {initials}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <Text
+              style={[
+                styles.displayName,
+                fontsLoaded ? { fontFamily: FontFamily.rocaRg } : {},
+                { color: colors.navy },
+              ]}
+            >
+              {displayName}
+            </Text>
+
+            <Text style={[styles.email, { color: colors.textSecondary, fontFamily: FontFamily.mono }]}>
+              {user.email}
+            </Text>
+
+            <View style={styles.metaRow}>
+              {/* <View style={[styles.roleBadge, { backgroundColor: colors.secondary }]}>
+                <Text style={[styles.roleBadgeText, { fontFamily: FontFamily.mono }]}>
+                  {roleLabel}
+                </Text>
+              </View> */}
+              {location && (
+                <View style={styles.locationPill}>
+                  <MaterialIcons name="location-on" size={12} color={colors.textMuted} />
+                  <Text style={[styles.locationText, { color: colors.textMuted, fontFamily: FontFamily.mono }]}>
+                    {location}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* À propos */}
+          {(profile?.biography || user.bio) ? (
+            <View style={styles.section}>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  fontsLoaded ? { fontFamily: FontFamily.rocaRg } : {},
+                  { color: colors.navy },
+                ]}
+              >
+                À propos
+              </Text>
+              <Text style={[styles.bioText, { color: colors.body, fontFamily: FontFamily.mono }]}>
+                {profile?.biography || user.bio}
+              </Text>
+            </View>
+          ) : null}
+
+          {/* Intérêts */}
+          {profile?.Interests && profile.Interests.length > 0 ? (
+            <View style={styles.section}>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  fontsLoaded ? { fontFamily: FontFamily.rocaRg } : {},
+                  { color: colors.navy },
+                ]}
+              >
+                Intérêts
+              </Text>
+              <View style={styles.tagsRow}>
+                {profile.Interests.map((interest) => (
+                  <View
+                    key={interest.id}
+                    style={[styles.tag, { backgroundColor: colors.tagBackground, borderColor: colors.secondary + '60' }]}
+                  >
+                    <Text style={[styles.tagText, { color: colors.secondary, fontFamily: FontFamily.mono }]}>
+                      {interest.name}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {/* Paramètres */}
+          <View style={styles.section}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                fontsLoaded ? { fontFamily: FontFamily.rocaRg } : {},
+                { color: colors.navy },
+              ]}
+            >
+              Paramètres
+            </Text>
+
+            <View style={[styles.settingsCard, { borderColor: colors.separator }]}>
+              <SettingsRow
+                icon={profile?.is_searchable ? 'visibility' : 'visibility-off'}
+                label={profile?.is_searchable ? 'Profil visible' : 'Profil masqué'}
+                sublabel={profile?.is_searchable ? 'Visible dans les recherches' : 'Caché des recherches'}
+                onPress={() => router.push('/edit-profile')}
+                right={
+                  <View
+                    style={[
+                      styles.statusDot,
+                      { backgroundColor: profile?.is_searchable ? '#4CAF50' : colors.textMuted },
+                    ]}
+                  />
+                }
+              />
+              <View style={[styles.rowDivider, { backgroundColor: colors.separator }]} />
+              <SettingsRow
+                icon="person-outline"
+                label="Modifier le profil"
+                onPress={() => router.push('/edit-profile')}
+              />
+              <View style={[styles.rowDivider, { backgroundColor: colors.separator }]} />
+              <SettingsRow
+                icon="logout"
+                label="Se déconnecter"
+                onPress={handleLogout}
+                danger
+              />
+            </View>
+          </View>
+
+        </ScrollView>
+      </View>
+    </View>
   );
 }
 
+// ── Styles ─────────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
   },
-  scrollContent: {
-    padding: 20,
-    paddingTop: 60,
-    paddingBottom: 40,
-    gap: 20,
-  },
-  header: {
+
+  // Top bar
+  topBar: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'ios' ? 72 : 52,
+    paddingBottom: 20,
   },
-  avatarContainer: {
-    position: 'relative',
+  pageTitle: {
+    fontSize: 30,
+    letterSpacing: -0.5,
+  },
+  editBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 100,
+  },
+  editBtnLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+
+  // Card
+  card: {
+    flex: 1,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+  },
+  scrollContent: {
+    paddingBottom: 100,
+  },
+
+  // Hero
+  hero: {
+    alignItems: 'center',
+    paddingTop: 32,
+    paddingBottom: 28,
+    paddingHorizontal: 24,
+    gap: 8,
+  },
+  avatarRing: {
+    width: 108,
+    height: 108,
+    borderRadius: 54,
+    borderWidth: 3,
     marginBottom: 8,
+    overflow: 'hidden',
   },
   avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: '100%',
+    height: '100%',
   },
-  avatarPlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+  avatarFallback: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
   initials: {
-    fontSize: 40,
-    fontWeight: '700',
+    fontSize: 36,
     color: '#FFFFFF',
   },
-  editBadge: {
-    position: 'absolute',
-    bottom: 4,
-    right: 4,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  name: {
-    fontSize: 24,
-    fontWeight: '700',
+  displayName: {
+    fontSize: 26,
+    letterSpacing: -0.5,
     textAlign: 'center',
   },
   email: {
-    fontSize: 14,
+    fontSize: 13,
     textAlign: 'center',
   },
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    gap: 12,
-  },
-  cardHeader: {
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 4,
   },
-  cardTitle: {
-    fontSize: 16,
+  roleBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 100,
+  },
+  roleBadgeText: {
+    fontSize: 12,
+    color: '#FFFFFF',
     fontWeight: '600',
+    letterSpacing: 0.3,
   },
-  infoRow: {
+  locationPill: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    gap: 3,
+  },
+  locationText: {
+    fontSize: 12,
+    letterSpacing: 0.1,
+  },
+
+  // Sections
+  section: {
+    paddingHorizontal: 24,
+    paddingBottom: 28,
     gap: 12,
   },
-  infoContent: {
-    flex: 1,
-    gap: 2,
+  sectionTitle: {
+    fontSize: 18,
+    letterSpacing: -0.3,
   },
-  infoLabel: {
-    fontSize: 12,
-    fontWeight: '500',
+  bioText: {
+    fontSize: 14,
+    lineHeight: 22,
+    letterSpacing: -0.2,
   },
-  infoValue: {
-    fontSize: 15,
-  },
-  interestsContainer: {
+  tagsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  interestBadge: {
+  tag: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
+    borderRadius: 6,
+    borderWidth: 0.5,
   },
-  interestText: {
+  tagText: {
     fontSize: 13,
-    fontWeight: '500',
+    letterSpacing: -0.1,
   },
-  visibilityRow: {
+
+  // Settings
+  settingsCard: {
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+  },
+  settingsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     gap: 12,
   },
-  visibilityText: {
-    fontSize: 14,
-    flex: 1,
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  settingsIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    marginTop: 8,
+    alignItems: 'center',
+    flexShrink: 0,
   },
-  logoutText: {
-    color: '#EF4444',
+  settingsLabelGroup: {
+    flex: 1,
+    gap: 2,
+  },
+  settingsLabel: {
+    fontSize: 14,
     fontWeight: '600',
-    fontSize: 15,
+  },
+  settingsSublabel: {
+    fontSize: 11,
+  },
+  rowDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginLeft: 64,
+  },
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
 });
-
-

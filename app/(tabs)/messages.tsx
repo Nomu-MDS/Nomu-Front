@@ -4,35 +4,26 @@ import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
-  View,
   Text,
-  Platform,
+  View,
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { FontFamily } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { getConversations } from '@/services/api/conversations';
 import { getToken } from '@/lib/session';
 import { decodeJwt } from '@/lib/jwt';
 import { connectSocket, getSocket } from '@/services/socket';
 import type { Conversation, Message } from '@/types/message';
 
-const BG_COLOR = '#E9E0D0';
-const CARD_COLOR = '#FFFFFF';
-const NAME_COLOR = '#22172A';
-const PREVIEW_COLOR = '#6C727F';
-const TIMESTAMP_COLOR = '#9EA3AE';
-const UNREAD_DOT_COLOR = '#4CAF50';
-const SEPARATOR_COLOR = '#E8E8E8';
-
 export default function MessagesScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
+  const { colors } = useTheme();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -213,20 +204,22 @@ export default function MessagesScreen() {
   const Header = () => (
     <View style={styles.header}>
       <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={12}>
-        <MaterialIcons name="arrow-back" size={24} color={NAME_COLOR} />
+        <MaterialIcons name="arrow-back" size={24} color={colors.heading} />
       </Pressable>
-      <Text style={styles.headerTitle}>Messages</Text>
+      <Text style={[styles.headerTitle, fontsLoaded ? { fontFamily: FontFamily.rocaBold } : {}, { color: colors.heading }]}>
+        Messages
+      </Text>
       <View style={styles.headerRight} />
     </View>
   );
 
   if (loading || !fontsLoaded) {
     return (
-      <View style={styles.screenContainer}>
+      <View style={[styles.screenContainer, { backgroundColor: colors.cream }]}>
         <Header />
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <View style={styles.centerContent}>
-            <ActivityIndicator size="large" color={theme.primary} />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         </View>
       </View>
@@ -235,13 +228,13 @@ export default function MessagesScreen() {
 
   if (error) {
     return (
-      <View style={styles.screenContainer}>
+      <View style={[styles.screenContainer, { backgroundColor: colors.cream }]}>
         <Header />
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <View style={styles.centerContent}>
-            <Text style={[styles.errorText, { color: theme.icon }]}>{error}</Text>
+            <Text style={[styles.errorText, { color: colors.textSecondary }]}>{error}</Text>
             <Pressable
-              style={[styles.retryButton, { backgroundColor: theme.primary }]}
+              style={[styles.retryButton, { backgroundColor: colors.primary }]}
               onPress={() => loadConversations()}
             >
               <Text style={styles.retryButtonText}>Réessayer</Text>
@@ -253,9 +246,9 @@ export default function MessagesScreen() {
   }
 
   return (
-    <View style={styles.screenContainer}>
+    <View style={[styles.screenContainer, { backgroundColor: colors.cream }]}>
       <Header />
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: colors.surface }]}>
         <FlatList
           data={conversations}
           keyExtractor={(item) => item.id.toString()}
@@ -280,28 +273,33 @@ export default function MessagesScreen() {
                 onPress={() => handleOpenConversation(item.id)}
               >
                 <View style={styles.avatarWrapper}>
-                  <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary }]}>
+                  <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
                     <Text style={styles.initials}>{initials}</Text>
                   </View>
                 </View>
 
                 <View style={styles.conversationContent}>
-                  <Text style={styles.userName} numberOfLines={1}>
+                  <Text
+                    style={[styles.userName, { color: colors.heading }, fontsLoaded ? { fontFamily: FontFamily.rocaRg } : {}]}
+                    numberOfLines={1}
+                  >
                     {otherUser.name}
                   </Text>
-                  <Text style={styles.lastMessage} numberOfLines={1}>
+                  <Text style={[styles.lastMessage, { color: colors.textSecondary, fontFamily: FontFamily.mono }]} numberOfLines={1}>
                     {lastMessage
                       ? lastMessage.attachment
                         ? '📷 Photo'
-                        : lastMessage.content
+                        : lastMessage.content?.startsWith('{"__type":"reservation"')
+                          ? 'Activité proposée'
+                          : lastMessage.content
                       : 'Aucun message'}
                   </Text>
                 </View>
 
                 <View style={styles.rightSection}>
-                  {unreadCount > 0 && <View style={styles.unreadDot} />}
+                  {unreadCount > 0 && <View style={[styles.unreadDot, { backgroundColor: colors.unread }]} />}
                   {lastMessage && (
-                    <Text style={styles.timestamp}>
+                    <Text style={[styles.timestamp, { color: colors.textMuted, fontFamily: FontFamily.mono }]}>
                       {formatTimestamp(lastMessage.createdAt)}
                     </Text>
                   )}
@@ -309,22 +307,22 @@ export default function MessagesScreen() {
               </Pressable>
             );
           }}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: colors.separator }]} />}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              tintColor={theme.primary}
-              colors={[theme.primary]}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
             />
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyText, { color: theme.icon }]}>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
                 Aucune conversation
               </Text>
-              <Text style={[styles.emptySubtext, { color: theme.icon }]}>
+              <Text style={[styles.emptySubtext, { color: colors.textMuted }]}>
                 Commencez une conversation en visitant le profil d'un utilisateur
               </Text>
             </View>
@@ -338,7 +336,6 @@ export default function MessagesScreen() {
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
-    backgroundColor: BG_COLOR,
   },
   header: {
     flexDirection: 'row',
@@ -353,9 +350,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   headerTitle: {
-    fontFamily: 'RocaOne-Bold',
     fontSize: 24,
-    color: NAME_COLOR,
     textAlign: 'center',
   },
   headerRight: {
@@ -363,7 +358,6 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    backgroundColor: CARD_COLOR,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
   },
@@ -383,11 +377,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
   },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-  },
   avatarPlaceholder: {
     width: 56,
     height: 56,
@@ -405,16 +394,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   userName: {
-    fontFamily: 'RocaOne-Rg',
     fontSize: 18,
     lineHeight: 24,
-    color: NAME_COLOR,
   },
   lastMessage: {
-    fontFamily: Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' }),
     fontSize: 12,
     lineHeight: 17,
-    color: PREVIEW_COLOR,
   },
   rightSection: {
     alignItems: 'flex-end',
@@ -425,17 +410,13 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: UNREAD_DOT_COLOR,
   },
   timestamp: {
-    fontFamily: Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' }),
     fontSize: 12,
-    color: TIMESTAMP_COLOR,
     textAlign: 'right',
   },
   separator: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: SEPARATOR_COLOR,
     marginLeft: 72,
   },
   centerContent: {

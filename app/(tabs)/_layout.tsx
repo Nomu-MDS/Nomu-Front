@@ -5,9 +5,8 @@ import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const ACTIVE_BG = "#465E8A";
-const INACTIVE_COLOR = "#465E8A";
-const ACTIVE_ICON_COLOR = "#E4DBCB";
+import { useTheme } from "@/hooks/use-theme";
+
 const ICON_SIZE = 22;
 
 type MaterialIconName = React.ComponentProps<typeof MaterialIcons>["name"];
@@ -22,12 +21,13 @@ const ROUTE_ICONS: Record<string, MaterialIconName> = {
 
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { colors, shadows } = useTheme();
 
   const visibleRoutes = state.routes.filter((r) => r.name !== "index");
 
   return (
     <View style={[styles.wrapper, { bottom: insets.bottom + 10 }]}>
-      <View style={styles.pill}>
+      <View style={[styles.pill, shadows.lg, { backgroundColor: colors.surface }]}>
         {visibleRoutes.map((route) => {
           const isFocused = state.routes[state.index].name === route.name;
           const icon = ROUTE_ICONS[route.name];
@@ -46,11 +46,11 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
           return (
             <Pressable key={route.key} style={styles.tabItem} onPress={onPress}>
               {isFocused ? (
-                <View style={styles.activeCircle}>
-                  <MaterialIcons name={icon} size={ICON_SIZE} color={ACTIVE_ICON_COLOR} />
+                <View style={[styles.activeCircle, { backgroundColor: colors.tabActiveCircle }]}>
+                  <MaterialIcons name={icon} size={ICON_SIZE} color={colors.tabActiveIcon} />
                 </View>
               ) : (
-                <MaterialIcons name={icon} size={ICON_SIZE} color={INACTIVE_COLOR} />
+                <MaterialIcons name={icon} size={ICON_SIZE} color={colors.tabIconDefault} />
               )}
             </Pressable>
           );
@@ -87,14 +87,8 @@ const styles = StyleSheet.create({
     width: "90%",
     height: 56,
     borderRadius: 40,
-    backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 12,
   },
   tabItem: {
     flex: 1,
@@ -106,7 +100,6 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: ACTIVE_BG,
     justifyContent: "center",
     alignItems: "center",
   },
