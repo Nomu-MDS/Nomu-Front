@@ -61,7 +61,8 @@ function GridCard({
 }) {
   const { shadows } = useTheme();
 
-  const imageUri = profile.image_url ?? `https://i.pravatar.cc/400?u=${profile.user_id}`;
+  const _pid = profile.user_id || profile.id || 0;
+  const imageUri = profile.image_url ?? `https://i.pravatar.cc/500?img=${(_pid % 70) + 1}`;
   const location = profile.city || profile.country || profile.location || null;
   const firstInterest = profile.interests?.[0] ?? null;
 
@@ -195,6 +196,17 @@ export default function ExploreScreen() {
     sexes:      rawParams.sexes      ? rawParams.sexes.split(',')      : [],
     prices:     rawParams.prices     ? rawParams.prices.split(',')     : [],
   }));
+
+  // Resync quand on navigue depuis home avec des params (tabs gardent le composant monté)
+  useEffect(() => {
+    setActiveFilters({
+      cities:     rawParams.cities     ? rawParams.cities.split(',')     : [],
+      languages:  rawParams.languages  ? rawParams.languages.split(',')  : [],
+      categories: rawParams.categories ? rawParams.categories.split(',') : [],
+      sexes:      rawParams.sexes      ? rawParams.sexes.split(',')      : [],
+      prices:     rawParams.prices     ? rawParams.prices.split(',')     : [],
+    });
+  }, [rawParams.cities, rawParams.languages, rawParams.categories, rawParams.sexes, rawParams.prices]);
 
   const debouncedQuery = useDebounce(query, 400);
 
