@@ -189,8 +189,9 @@ export default function MeScreen() {
     profile?.city && profile?.country
       ? `${profile.city}, ${profile.country}`
       : profile?.city || profile?.country || user.location || null;
-  const imageUri =
-    profile?.image_url ?? (user.id > 0 ? `https://i.pravatar.cc/300?u=${user.id}` : null);
+  const imageUri = profile?.image_url ?? (user.id > 0
+    ? `https://i.pravatar.cc/500?img=${(user.id % 70) + 1}`
+    : null);
   const roleLabel =
     user.role === 'local' ? 'Local' : user.role === 'voyager' ? 'Voyageur' : user.role;
 
