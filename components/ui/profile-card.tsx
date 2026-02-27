@@ -58,18 +58,10 @@ export const ProfileCard = memo(function ProfileCard({
     >
       {/* Avatar */}
       <View style={styles.avatarContainer}>
-        {profile.image_url ? (
-          <Image source={{ uri: profile.image_url }} style={styles.avatar} />
-        ) : (
-          <View
-            style={[
-              styles.avatarPlaceholder,
-              { backgroundColor: theme.primary },
-            ]}
-          >
-            <ThemedText style={styles.initials}>{initials}</ThemedText>
-          </View>
-        )}
+        <Image
+          source={{ uri: profile.image_url ?? `https://i.pravatar.cc/500?img=${(profile.id % 70) + 1}` }}
+          style={styles.avatar}
+        />
       </View>
 
       {/* Content */}

@@ -50,9 +50,8 @@ const CARD_H = 175;
 
 function LocalCard({ profile, onPress }: { profile: ProfileHit; onPress: () => void }) {
   const { shadows } = useTheme();
-  const photoIdx = profile.user_id % 70;
-  const gender = profile.user_id % 2 === 0 ? 'men' : 'women';
-  const uri = profile.image_url ?? `https://randomuser.me/api/portraits/${gender}/${photoIdx}.jpg`;
+  const _pid = profile.user_id || profile.id || 0;
+  const uri = profile.image_url ?? `https://i.pravatar.cc/500?img=${(_pid % 70) + 1}`;
   const location = profile.city || profile.country || null;
 
   return (
@@ -385,7 +384,7 @@ export default function HomeScreen() {
                   <InterestPill
                     key={i.id}
                     name={i.name}
-                    onPress={() => router.push('/explore')}
+                    onPress={() => router.push(`/explore?categories=${encodeURIComponent(i.name)}`)}
                   />
                 ))}
               </ScrollView>

@@ -273,7 +273,7 @@ export default function UserProfileScreen() {
               {/* Photo ou placeholder */}
               <Image
                 source={{
-                  uri: profile.image_url ?? `https://i.pravatar.cc/300?u=${profile.id}`,
+                  uri: profile.image_url ?? `https://i.pravatar.cc/500?img=${(profile.id % 70) + 1}`,
                 }}
                 style={styles.passportPhoto}
                 resizeMode="cover"
