@@ -269,6 +269,7 @@ export default function ChatScreen() {
         />
 
         <MessageInput
+          conversationId={conversationId}
           onSendMessage={handleSendMessage}
           onTyping={handleTyping}
           onReservationRequest={() => setReservationModalVisible(true)}

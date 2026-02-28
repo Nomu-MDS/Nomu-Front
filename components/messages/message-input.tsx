@@ -2,6 +2,8 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Animated,
   Image,
   Platform,
@@ -14,18 +16,22 @@ import {
 
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { uploadMessageAttachment } from '@/lib/upload';
 
 interface MessageInputProps {
+  conversationId: number;
   onSendMessage: (content: string, attachment: string | null) => void;
   onTyping: (isTyping: boolean) => void;
   onReservationRequest?: () => void;
   disabled?: boolean;
 }
 
-export function MessageInput({ onSendMessage, onTyping, onReservationRequest, disabled = false }: MessageInputProps) {
+export function MessageInput({ conversationId, onSendMessage, onTyping, onReservationRequest, disabled = false }: MessageInputProps) {
   const { colors } = useTheme();
   const [message, setMessage] = useState('');
   const [attachment, setAttachment] = useState<string | null>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
 
   const slideAnim = useRef(new Animated.Value(12)).current;
@@ -64,7 +70,7 @@ export function MessageInput({ onSendMessage, onTyping, onReservationRequest, di
   };
 
   const handleSend = () => {
-    if ((!message.trim() && !attachment) || disabled) return;
+    if ((!message.trim() && !attachment) || disabled || uploading) return;
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
@@ -72,17 +78,32 @@ export function MessageInput({ onSendMessage, onTyping, onReservationRequest, di
     onSendMessage(message.trim(), attachment);
     setMessage('');
     setAttachment(null);
+    setAttachmentPreview(null);
     onTyping(false);
+  };
+
+  const handleImageSelected = async (localUri: string) => {
+    setAttachmentPreview(localUri);
+    setUploading(true);
+    try {
+      const minioUrl = await uploadMessageAttachment(localUri, conversationId);
+      setAttachment(minioUrl);
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message || 'Impossible d\'uploader l\'image');
+      setAttachmentPreview(null);
+      setAttachment(null);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const pickFromCamera = async () => {
     closeMenu();
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) return;
-    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.8, base64: true });
-    if (!result.canceled && result.assets?.[0]) {
-      const a = result.assets[0];
-      setAttachment(a.base64 && a.mimeType ? `data:${a.mimeType};base64,${a.base64}` : a.uri);
+    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.8 });
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      await handleImageSelected(result.assets[0].uri);
     }
   };
 
@@ -90,14 +111,13 @@ export function MessageInput({ onSendMessage, onTyping, onReservationRequest, di
     closeMenu();
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) return;
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, quality: 0.8, base64: true });
-    if (!result.canceled && result.assets?.[0]) {
-      const a = result.assets[0];
-      setAttachment(a.base64 && a.mimeType ? `data:${a.mimeType};base64,${a.base64}` : a.uri);
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, quality: 0.8 });
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      await handleImageSelected(result.assets[0].uri);
     }
   };
 
-  const canSend = (message.trim().length > 0 || !!attachment) && !disabled;
+  const canSend = (message.trim().length > 0 || !!attachment) && !disabled && !uploading;
 
   return (
     <View style={styles.wrapper}>
@@ -138,16 +158,22 @@ export function MessageInput({ onSendMessage, onTyping, onReservationRequest, di
       )}
 
       {/* Preview image attachée */}
-      {attachment && (
+      {attachmentPreview && (
         <View style={styles.attachmentPreview}>
-          <Image source={{ uri: attachment }} style={styles.previewImage} />
-          <Pressable
-            style={[styles.removeButton, { backgroundColor: colors.secondary }]}
-            onPress={() => setAttachment(null)}
-            hitSlop={8}
-          >
-            <MaterialIcons name="close" size={14} color={colors.secondaryText} />
-          </Pressable>
+          <Image source={{ uri: attachmentPreview }} style={styles.previewImage} />
+          {uploading ? (
+            <View style={[styles.uploadingOverlay]}>
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            </View>
+          ) : (
+            <Pressable
+              style={[styles.removeButton, { backgroundColor: colors.secondary }]}
+              onPress={() => { setAttachment(null); setAttachmentPreview(null); }}
+              hitSlop={8}
+            >
+              <MaterialIcons name="close" size={14} color={colors.secondaryText} />
+            </Pressable>
+          )}
         </View>
       )}
 
@@ -246,6 +272,17 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
