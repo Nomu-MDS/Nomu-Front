@@ -22,6 +22,7 @@ import { API_BASE_URL } from '@/constants/config';
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getToken } from '@/lib/session';
+import { uploadProfilePhoto } from '@/lib/upload';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -77,6 +78,7 @@ export default function EditProfileScreen() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [interests, setInterests] = useState<Interest[]>([]);
 
   useEffect(() => {
@@ -127,14 +129,29 @@ export default function EditProfileScreen() {
     );
   };
 
+  const handleImageSelected = async (localUri: string) => {
+    setUploading(true);
+    try {
+      const minioUrl = await uploadProfilePhoto(localUri);
+      setImageUrl(minioUrl);
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message || 'Impossible d\'uploader la photo');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const pickImage = () => {
+    if (uploading) return;
     Alert.alert('Modifier la photo', 'Choisissez une source', [
       {
         text: 'Appareil photo', onPress: async () => {
           const perm = await ImagePicker.requestCameraPermissionsAsync();
           if (!perm.granted) return;
           const r = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 });
-          if (!r.canceled && r.assets?.[0]) setImageUrl(r.assets[0].uri ?? '');
+          if (!r.canceled && r.assets?.[0]?.uri) {
+            await handleImageSelected(r.assets[0].uri);
+          }
         },
       },
       {
@@ -142,7 +159,9 @@ export default function EditProfileScreen() {
           const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
           if (!perm.granted) return;
           const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 });
-          if (!r.canceled && r.assets?.[0]) setImageUrl(r.assets[0].uri ?? '');
+          if (!r.canceled && r.assets?.[0]?.uri) {
+            await handleImageSelected(r.assets[0].uri);
+          }
         },
       },
       { text: 'Annuler', style: 'cancel' },
@@ -229,8 +248,12 @@ export default function EditProfileScreen() {
           >
             {/* Avatar */}
             <View style={styles.avatarSection}>
-              <Pressable style={[styles.avatarWrapper, shadows.md]} onPress={pickImage}>
-                {imageUrl ? (
+              <Pressable style={[styles.avatarWrapper, shadows.md]} onPress={pickImage} disabled={uploading}>
+                {uploading ? (
+                  <View style={[styles.avatarFallback, { backgroundColor: colors.secondary }]}>
+                    <ActivityIndicator size="large" color="#FFFFFF" />
+                  </View>
+                ) : imageUrl ? (
                   <Image source={{ uri: imageUrl }} style={styles.avatar} resizeMode="cover" />
                 ) : (
                   <View style={[styles.avatarFallback, { backgroundColor: colors.secondary }]}>
@@ -241,9 +264,9 @@ export default function EditProfileScreen() {
                   <MaterialIcons name="photo-camera" size={16} color="#FFFFFF" />
                 </View>
               </Pressable>
-              <Pressable onPress={pickImage} hitSlop={8}>
+              <Pressable onPress={pickImage} hitSlop={8} disabled={uploading}>
                 <Text style={[styles.changePhoto, { color: colors.secondary, fontFamily: FontFamily.mono }]}>
-                  Changer la photo
+                  {uploading ? 'Upload en cours...' : 'Changer la photo'}
                 </Text>
               </Pressable>
             </View>
