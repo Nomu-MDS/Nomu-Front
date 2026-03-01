@@ -23,6 +23,9 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { colors, shadows } = useTheme();
 
+  // Pas de tab bar sur la page d'accueil (non connecté)
+  if (state.routes[state.index].name === "index") return null;
+
   const visibleRoutes = state.routes.filter((r) => r.name !== "index");
 
   return (
