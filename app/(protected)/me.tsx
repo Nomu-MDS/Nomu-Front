@@ -1,10 +1,13 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { useRouter } from 'expo-router';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -18,6 +21,8 @@ import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { decodeJwt } from '@/lib/jwt';
 import { clearToken, getToken } from '@/lib/session';
+
+const BIO_PROMPT_KEY = 'bio_prompt_dismissed_at';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -116,46 +121,76 @@ export default function MeScreen() {
 
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showBioPrompt, setShowBioPrompt] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const token = getToken();
-        if (!token) { router.replace('/login'); return; }
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      (async () => {
+        setLoading(true);
+        try {
+          const token = getToken();
+          if (!token) { router.replace('/login'); return; }
 
-        const res = await fetch(`${API_BASE_URL}/users/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+          const res = await fetch(`${API_BASE_URL}/users/me`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
 
-        if (res.ok) {
-          setUser(await res.json());
-        } else if (res.status === 401) {
-          await clearToken();
-          router.replace('/login');
-        } else if (res.status === 404) {
-          const claims = decodeJwt(token);
-          if (claims) {
-            setUser({
-              id: 0,
-              name: (claims.name as string) || 'Utilisateur',
-              email: (claims.email as string) || '—',
-              role: (claims.role as string) || 'user',
-              bio: null,
-              location: null,
-            });
+          if (!active) return;
+
+          if (res.ok) {
+            setUser(await res.json());
+          } else if (res.status === 401) {
+            await clearToken();
+            router.replace('/login');
+          } else if (res.status === 404) {
+            const claims = decodeJwt(token);
+            if (claims) {
+              setUser({
+                id: 0,
+                name: (claims.name as string) || 'Utilisateur',
+                email: (claims.email as string) || '—',
+                role: (claims.role as string) || 'user',
+                bio: null,
+                location: null,
+              });
+            }
+          } else {
+            await clearToken();
+            router.replace('/login');
           }
-        } else {
+        } catch {
+          if (!active) return;
           await clearToken();
           router.replace('/login');
+        } finally {
+          if (active) setLoading(false);
         }
-      } catch {
-        await clearToken();
-        router.replace('/login');
-      } finally {
-        setLoading(false);
+      })();
+      return () => { active = false; };
+    }, [router]),
+  );
+
+  // Afficher la modal si pas de bio et pas refusée récemment
+  useEffect(() => {
+    if (!user) return;
+    const hasBio = !!(user.Profile?.biography || user.bio);
+    if (hasBio) return;
+    (async () => {
+      const raw = await AsyncStorage.getItem(BIO_PROMPT_KEY);
+      if (raw) {
+        const dismissedAt = parseInt(raw, 10);
+        const sevenDays = 7 * 24 * 60 * 60 * 1000;
+        if (Date.now() - dismissedAt < sevenDays) return;
       }
+      setShowBioPrompt(true);
     })();
-  }, [router]);
+  }, [user]);
+
+  const dismissBioPrompt = async () => {
+    await AsyncStorage.setItem(BIO_PROMPT_KEY, String(Date.now()));
+    setShowBioPrompt(false);
+  };
 
   const handleLogout = async () => {
     await clearToken();
@@ -199,6 +234,44 @@ export default function MeScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.beige }]}>
+
+      {/* ── Modal bio prompt ─────────────────────────────────────────────────── */}
+      <Modal
+        visible={showBioPrompt}
+        transparent
+        animationType="slide"
+        onRequestClose={dismissBioPrompt}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={dismissBioPrompt}>
+          <Pressable style={[styles.modalSheet, { backgroundColor: colors.surface }]} onPress={() => {}}>
+            <View style={styles.modalHandle} />
+
+            <View style={[styles.modalIconWrap, { backgroundColor: colors.tagBackground }]}>
+              <MaterialIcons name="auto-awesome" size={32} color={colors.secondary} />
+            </View>
+
+            <Text style={[styles.modalTitle, { color: colors.navy, fontFamily: FontFamily.rocaBold }]}>
+              Complétez votre profil
+            </Text>
+            <Text style={[styles.modalBody, { color: colors.body, fontFamily: FontFamily.mono }]}>
+              Ajoutez une bio pour obtenir des suggestions de profils plus pertinentes et augmenter vos chances de connexion.
+            </Text>
+
+            <Pressable
+              style={[styles.modalCta, { backgroundColor: colors.secondary }]}
+              onPress={() => { setShowBioPrompt(false); router.push('/edit-profile'); }}
+            >
+              <Text style={[styles.modalCtaText, { fontFamily: FontFamily.mono }]}>Ajouter une bio</Text>
+            </Pressable>
+
+            <Pressable style={styles.modalLater} onPress={dismissBioPrompt}>
+              <Text style={[styles.modalLaterText, { color: colors.textMuted, fontFamily: FontFamily.mono }]}>
+                Plus tard
+              </Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* ── Top bar ─────────────────────────────────────────────────────────── */}
       <View style={styles.topBar}>
@@ -550,5 +623,66 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
+  },
+
+  // Bio prompt modal
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 28,
+    paddingTop: 16,
+    paddingBottom: 40,
+    alignItems: 'center',
+    gap: 12,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    marginBottom: 8,
+  },
+  modalIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  modalTitle: {
+    fontSize: 22,
+    letterSpacing: -0.4,
+    textAlign: 'center',
+  },
+  modalBody: {
+    fontSize: 14,
+    lineHeight: 22,
+    textAlign: 'center',
+    letterSpacing: -0.1,
+    marginBottom: 8,
+  },
+  modalCta: {
+    width: '100%',
+    paddingVertical: 16,
+    borderRadius: 24,
+    alignItems: 'center',
+  },
+  modalCtaText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  modalLater: {
+    paddingVertical: 8,
+  },
+  modalLaterText: {
+    fontSize: 14,
+    textDecorationLine: 'underline',
   },
 });

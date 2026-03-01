@@ -1,8 +1,11 @@
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { Eye, EyeSlash } from "phosphor-react-native";
 import { useState } from "react";
+
+WebBrowser.maybeCompleteAuthSession();
 import {
     Alert,
     ImageBackground,
@@ -19,6 +22,13 @@ import { SvgXml } from "react-native-svg";
 import { API_BASE_URL } from "@/constants/config";
 import { setToken } from "@/lib/session";
 
+const googleLogoSvg = `<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+  <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+  <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+  <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/>
+  <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z"/>
+</svg>`;
+
 const logoBlackSvg = `<svg width="272" height="54" viewBox="0 0 272 54" fill="none" xmlns="http://www.w3.org/2000/svg">
 <path d="M55.1 38.7C56.4 44.8 60.4 44 60.4 47.5C60.4 49.5 58.7 50 56 50H42C39.2 50 37.5 49.4 37.5 47.4C37.5 44.1 42.7 44.4 41.4 37.9L38.3 22.1C37.1 15.8 35.2 9.6 28.6 9.7C23.3 9.7 18.5 14.5 18.5 23.3V36.1C18.5 45.4 23.3 43.1 23.3 47.5C23.3 49.5 21.7 50 18.9 50H4.6C1.8 50 0 49.4 0 47.4C0 43.1 5 45.4 5 36.1V17.1C5 14.3 3.9 12.5 1.9 11C0.9 10.3 0 9.6 0 8.2C0 6.6 0.8 5.9 3.2 4.8C6.9 3 13.1 1.2 14.7 1.1C16.4 1.1 17.1 2.1 17.1 4.1V10.1C20.9 4.1 27 1 33.4 1C44.8 1 49.1 8.4 51.7 21.6L55.1 38.7Z" fill="#3C3C3B"/>
 <path d="M207.9 38.7C209.1 44.8 213.1 44 213.1 47.5C213.1 49.5 211.5 50 208.8 50H194.8C192 50 190.2 49.4 190.2 47.4C190.2 44.1 195.5 44.4 194.2 37.9L191.1 22.1C189.9 15.8 188.8 9.6 181.9 9.7C176.9 9.7 171.9 14.2 171.9 23.3V36.1C171.9 45.4 176.8 43.1 176.8 47.5C176.8 49.5 175.1 50 172.4 50H158.1C155.2 50 153.5 49.4 153.5 47.4C153.5 43.1 158.4 45.4 158.4 36.1V23C158.4 15.6 157.1 9.3 149.9 9.4C144.5 9.5 139.2 14.5 139.2 23.3V36.1C139.2 45.4 144 43.1 144 47.5C144 49.5 142.4 50 139.6 50H125.3C122.5 50 120.7 49.4 120.7 47.4C120.7 43.1 125.7 45.4 125.7 36.1V17.1C125.7 14.3 124.6 12.5 122.6 11C121.6 10.3 120.7 9.6 120.7 8.2C120.7 6.6 121.5 5.9 123.9 4.8C127.6 3 133.8 1.2 135.4 1.1C137.1 1.1 137.8 2.1 137.8 4.1V10.6C141.7 4.2 147.9 1 154.4 1C162.5 1 167.6 4.5 170.1 10.6C173.9 4.3 179.9 1 186.6 1C198.2 1 201.8 8.4 204.5 21.6L207.9 38.7Z" fill="#3C3C3B"/>
@@ -33,6 +43,33 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  const handleGoogleLogin = async () => {
+    if (isGoogleLoading) return;
+    setIsGoogleLoading(true);
+    try {
+      const result = await WebBrowser.openAuthSessionAsync(
+        `${API_BASE_URL}/auth/google?mobile=1`,
+        "nomufront://"
+      );
+      if (result.type !== "success") return;
+
+      const qs = result.url.split("?")[1] ?? "";
+      const getParam = (key: string) => {
+        const m = qs.match(new RegExp(`(?:^|&)${key}=([^&]*)`));
+        return m ? decodeURIComponent(m[1]) : null;
+      };
+      const token = getParam("token");
+      if (!token) throw new Error("Token manquant");
+      await setToken(token);
+      router.replace(getParam("new") === "1" ? "/onboarding" : "/(tabs)/profile");
+    } catch (err: any) {
+      Alert.alert("Erreur", err.message || "Impossible de se connecter avec Google");
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
 
   const emailValid = /\S+@\S+\.\S+/.test(email);
   const formValid = emailValid && password.length >= 6;
@@ -161,8 +198,19 @@ export default function LoginScreen() {
           </View>
 
           {/* Google Button */}
-          <Pressable style={styles.googleButton}>
-            <Text style={styles.googleButtonText}>Continue with Google</Text>
+          <Pressable
+            style={[styles.googleButton, isGoogleLoading && styles.loginButtonDisabled]}
+            onPress={handleGoogleLogin}
+            disabled={isGoogleLoading}
+          >
+            {isGoogleLoading ? (
+              <Text style={styles.googleButtonText}>Loading...</Text>
+            ) : (
+              <>
+                <SvgXml xml={googleLogoSvg} width={20} height={20} />
+                <Text style={styles.googleButtonText}>Continue with Google</Text>
+              </>
+            )}
           </Pressable>
 
           {/* Create Account */}
@@ -272,19 +320,24 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   googleButton: {
-    backgroundColor: "transparent",
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
+    backgroundColor: "#FFFFFF",
     borderRadius: 25,
     height: 56,
-    justifyContent: "center",
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
     marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.18,
+    shadowRadius: 2,
+    elevation: 2,
   },
   googleButtonText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: "#3C3C3B",
   },
   createAccountButton: {
     alignSelf: "center",
