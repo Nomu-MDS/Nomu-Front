@@ -249,17 +249,19 @@ export default function EditProfileScreen() {
             {/* Avatar */}
             <View style={styles.avatarSection}>
               <Pressable style={[styles.avatarWrapper, shadows.md]} onPress={pickImage} disabled={uploading}>
-                {uploading ? (
-                  <View style={[styles.avatarFallback, { backgroundColor: colors.secondary }]}>
-                    <ActivityIndicator size="large" color="#FFFFFF" />
-                  </View>
-                ) : imageUrl ? (
-                  <Image source={{ uri: imageUrl }} style={styles.avatar} resizeMode="cover" />
-                ) : (
-                  <View style={[styles.avatarFallback, { backgroundColor: colors.secondary }]}>
-                    <Text style={[styles.initials, { fontFamily: FontFamily.rocaBold }]}>{initials}</Text>
-                  </View>
-                )}
+                <View style={styles.avatarInner}>
+                  {uploading ? (
+                    <View style={[styles.avatarFallback, { backgroundColor: colors.secondary }]}>
+                      <ActivityIndicator size="large" color="#FFFFFF" />
+                    </View>
+                  ) : imageUrl ? (
+                    <Image source={{ uri: imageUrl }} style={styles.avatar} resizeMode="cover" />
+                  ) : (
+                    <View style={[styles.avatarFallback, { backgroundColor: colors.secondary }]}>
+                      <Text style={[styles.initials, { fontFamily: FontFamily.rocaBold }]}>{initials}</Text>
+                    </View>
+                  )}
+                </View>
                 <View style={[styles.cameraBadge, { backgroundColor: colors.primary }]}>
                   <MaterialIcons name="photo-camera" size={16} color="#FFFFFF" />
                 </View>
@@ -456,8 +458,13 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    overflow: 'hidden',
     position: 'relative',
+  },
+  avatarInner: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    overflow: 'hidden',
   },
   avatar: { width: '100%', height: '100%' },
   avatarFallback: {

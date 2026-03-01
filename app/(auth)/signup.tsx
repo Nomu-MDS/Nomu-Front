@@ -3,6 +3,7 @@ import { useFonts } from "expo-font";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -18,10 +19,21 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SvgXml } from "react-native-svg";
 
 import { FilterBadge } from "@/components/ui/filter-badge";
 import { API_BASE_URL } from "@/constants/config";
 import { setToken } from "@/lib/session";
+
+WebBrowser.maybeCompleteAuthSession();
+
+const googleLogoSvg = `<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+  <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+  <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+  <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/>
+  <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z"/>
+</svg>`;
 
 // Type pour les intérêts du backend
 interface Interest {
@@ -33,6 +45,7 @@ interface Interest {
 
 export default function SignupScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [step, setStep] = useState(1);
   const totalSteps = 3;
@@ -43,6 +56,11 @@ export default function SignupScreen() {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [selectedInterestIds, setSelectedInterestIds] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  // État pour le flux Google signup (token récupéré, pas besoin des étapes 1 et 2)
+  const [isGoogleSignup, setIsGoogleSignup] = useState(false);
+  const [googleToken, setGoogleToken] = useState<string | null>(null);
 
   // Intérêts chargés depuis l'API
   const [interests, setInterests] = useState<Interest[]>([]);
@@ -156,58 +174,100 @@ export default function SignupScreen() {
     );
   };
 
+  const handleGoogleSignup = async () => {
+    if (isGoogleLoading) return;
+    setIsGoogleLoading(true);
+    try {
+      const result = await WebBrowser.openAuthSessionAsync(
+        `${API_BASE_URL}/auth/google?mobile=1`,
+        "nomufront://"
+      );
+      if (result.type !== "success") return;
+
+      const qs = result.url.split("?")[1] ?? "";
+      const getParam = (key: string) => {
+        const m = qs.match(new RegExp(`(?:^|&)${key}=([^&]*)`));
+        return m ? decodeURIComponent(m[1]) : null;
+      };
+      const token = getParam("token");
+      if (!token) throw new Error("Token manquant");
+
+      await setToken(token);
+
+      if (getParam("new") === "1") {
+        // Nouveau compte Google → passer aux intérêts
+        setGoogleToken(token);
+        setIsGoogleSignup(true);
+        setStep(3);
+      } else {
+        // Compte existant → connexion directe
+        router.replace("/(tabs)/profile");
+      }
+    } catch (err: any) {
+      Alert.alert("Erreur", err.message || "Impossible de continuer avec Google");
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!step3Valid || isSubmitting) return;
 
     setIsSubmitting(true);
-    const trimmedEmail = email.trim().toLowerCase();
 
     try {
-      // 1. Créer l'utilisateur via /auth/signup
-      const signupResponse = await fetch(`${API_BASE_URL}/auth/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: username.trim(),
-          email: trimmedEmail,
-          password,
-          is_searchable: true,
-        }),
-      });
+      let token: string;
 
-      if (!signupResponse.ok) {
-        const errorData = await signupResponse.json().catch(() => ({}));
-        throw new Error(
-          errorData.error || "Erreur lors de la création du compte",
-        );
+      if (isGoogleSignup && googleToken) {
+        // Flux Google : token déjà obtenu, pas besoin de signup/login
+        token = googleToken;
+      } else {
+        const trimmedEmail = email.trim().toLowerCase();
+
+        // 1. Créer l'utilisateur via /auth/signup
+        const signupResponse = await fetch(`${API_BASE_URL}/auth/signup`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: username.trim(),
+            email: trimmedEmail,
+            password,
+            is_searchable: true,
+          }),
+        });
+
+        if (!signupResponse.ok) {
+          const errorData = await signupResponse.json().catch(() => ({}));
+          throw new Error(
+            errorData.error || "Erreur lors de la création du compte",
+          );
+        }
+
+        console.log("[Signup] Compte créé:", trimmedEmail);
+
+        // 2. Auto-login pour obtenir un token valide
+        const loginResponse = await fetch(`${API_BASE_URL}/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: trimmedEmail, password }),
+        });
+
+        if (!loginResponse.ok) {
+          throw new Error(
+            "Compte créé mais erreur lors de la connexion automatique",
+          );
+        }
+
+        const loginData = await loginResponse.json();
+        token = loginData.token || loginData.idToken || loginData.access_token;
+
+        if (!token) {
+          throw new Error("Token manquant dans la réponse de login");
+        }
+
+        await setToken(token);
+        console.log("[Signup] Auto-login réussi, token stocké");
       }
-
-      const signupData = await signupResponse.json();
-      console.log("[Signup] Compte créé:", signupData.user?.email);
-
-      // 2. Auto-login pour obtenir un idToken valide
-      const loginResponse = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: trimmedEmail, password }),
-      });
-
-      if (!loginResponse.ok) {
-        throw new Error(
-          "Compte créé mais erreur lors de la connexion automatique",
-        );
-      }
-
-      const loginData = await loginResponse.json();
-      const token =
-        loginData.token || loginData.idToken || loginData.access_token;
-
-      if (!token) {
-        throw new Error("Token manquant dans la réponse de login");
-      }
-
-      await setToken(token);
-      console.log("[Signup] Auto-login réussi, token stocké");
 
       // 3. Mettre à jour le profil avec les intérêts sélectionnés
       if (selectedInterestIds.length > 0) {
@@ -234,7 +294,7 @@ export default function SignupScreen() {
       }
 
       // 4. Rediriger vers le profil
-      router.replace("/profile");
+      router.replace("/(tabs)/profile");
     } catch (err: any) {
       console.error("[Signup] Erreur:", err);
       Alert.alert(
@@ -272,7 +332,7 @@ export default function SignupScreen() {
         locations={[0, 0.5, 1]}
         style={styles.gradient}
       >
-        <View style={styles.container}>
+        <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
           {/* Barre de progression en haut */}
           <View style={styles.topBar}>
             <Pressable
@@ -345,6 +405,29 @@ export default function SignupScreen() {
                       secureTextEntry
                     />
                   </View>
+
+                  {/* Séparateur */}
+                  <View style={styles.separatorContainer}>
+                    <View style={styles.separatorLine} />
+                    <Text style={styles.separatorText}>Or</Text>
+                    <View style={styles.separatorLine} />
+                  </View>
+
+                  {/* Bouton Google */}
+                  <Pressable
+                    style={[styles.googleButton, isGoogleLoading && styles.buttonDisabled]}
+                    onPress={handleGoogleSignup}
+                    disabled={isGoogleLoading}
+                  >
+                    {isGoogleLoading ? (
+                      <ActivityIndicator size="small" color="#3C3C3B" />
+                    ) : (
+                      <>
+                        <SvgXml xml={googleLogoSvg} width={20} height={20} />
+                        <Text style={styles.googleButtonText}>Continue with Google</Text>
+                      </>
+                    )}
+                  </Pressable>
                 </View>
               )}
 
@@ -459,7 +542,6 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingTop: 20,
     paddingHorizontal: 20,
   },
   topBar: {
@@ -478,13 +560,13 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 6,
     borderRadius: 999,
-    backgroundColor: "rgba(70, 94, 138, 0.3)",
+    backgroundColor: "rgba(233, 224, 208, 0.3)",
     overflow: "hidden",
   },
   progressFill: {
     height: "100%",
     borderRadius: 999,
-    backgroundColor: "#465E8A",
+    backgroundColor: "#E9E0D0",
   },
   contentWrapper: {
     flex: 1,
@@ -597,5 +679,36 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: "#000",
+  },
+  separatorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 8,
+  },
+  separatorLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "rgba(233, 224, 208, 0.4)",
+  },
+  separatorText: {
+    fontSize: 14,
+    color: "rgba(233, 224, 208, 0.7)",
+    fontWeight: "500",
+  },
+  googleButton: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  googleButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#3C3C3B",
   },
 });
