@@ -67,7 +67,11 @@ export default function SignupScreen() {
   const [loadingInterests, setLoadingInterests] = useState(true);
 
   const [fontsLoaded] = useFonts({
-    "RocaOne-Bold": require("@/assets/fonts/roca/RocaOne-Bold.ttf"),
+    "RocaOne-Bold":    require("@/assets/fonts/roca/RocaOne-Bold.ttf"),
+    'Poppins-Regular':  require('@/assets/fonts/poppins/Poppins-Regular.ttf'),
+    'Poppins-Medium':   require('@/assets/fonts/poppins/Poppins-Medium.ttf'),
+    'Poppins-SemiBold': require('@/assets/fonts/poppins/Poppins-SemiBold.ttf'),
+    'Poppins-Bold':     require('@/assets/fonts/poppins/Poppins-Bold.ttf'),
   });
 
   // Charger les intérêts au montage

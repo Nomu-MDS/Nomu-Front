@@ -7,6 +7,7 @@ import {
   Alert,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -18,7 +19,7 @@ import { MessageBubble } from '@/components/messages/message-bubble';
 import { MessageInput } from '@/components/messages/message-input';
 import { ReservationModal } from '@/components/messages/reservation-modal';
 import { TypingIndicator } from '@/components/messages/typing-indicator';
-import { Colors } from '@/constants/theme';
+import { Colors, FontFamily } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getToken } from '@/lib/session';
 import { decodeJwt } from '@/lib/jwt';
@@ -45,9 +46,14 @@ export default function ChatScreen() {
   const [isOtherUserTyping, setIsOtherUserTyping] = useState(false);
   const [otherUserTypingName, setOtherUserTypingName] = useState('');
   const [reservationModalVisible, setReservationModalVisible] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
 
   const [fontsLoaded] = useFonts({
-    'RocaOne-Rg': require('@/assets/fonts/roca/RocaOne-Rg.ttf'),
+    'RocaOne-Rg':      require('@/assets/fonts/roca/RocaOne-Rg.ttf'),
+    'Poppins-Regular':  require('@/assets/fonts/poppins/Poppins-Regular.ttf'),
+    'Poppins-Medium':   require('@/assets/fonts/poppins/Poppins-Medium.ttf'),
+    'Poppins-SemiBold': require('@/assets/fonts/poppins/Poppins-SemiBold.ttf'),
+    'Poppins-Bold':     require('@/assets/fonts/poppins/Poppins-Bold.ttf'),
   });
 
   const flatListRef = useRef<FlatList>(null);
@@ -230,7 +236,11 @@ export default function ChatScreen() {
           </View>
         </View>
 
-        <Pressable style={styles.menuButton} hitSlop={8}>
+        <Pressable
+          style={styles.menuButton}
+          hitSlop={8}
+          onPress={() => setMenuVisible(true)}
+        >
           <MaterialIcons name="more-vert" size={20} color="#FFFFFF" />
         </Pressable>
       </View>
@@ -282,6 +292,25 @@ export default function ChatScreen() {
           onCreated={handleReservationCreated}
         />
       </KeyboardAvoidingView>
+
+      {/* ── Dropdown menu ────────────────────────────────────────────── */}
+      <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={() => setMenuVisible(false)}>
+        <Pressable style={styles.menuOverlay} onPress={() => setMenuVisible(false)}>
+          <View style={styles.menuDropdown}>
+            <Pressable
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuVisible(false);
+                if (otherUser) router.push({ pathname: '/(protected)/report/[userId]', params: { userId: String(otherUser.id), userName: otherUser.name } });
+              }}
+            >
+              <MaterialIcons name="flag" size={16} color="#e53e3e" />
+              <Text style={styles.menuItemText}>Signaler cet utilisateur</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
     </View>
   );
 }
@@ -334,7 +363,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.32,
   },
   userStatus: {
-    fontFamily: Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' }),
+    fontFamily: FontFamily.mono,
     fontSize: 11,
     color: DARK,
     letterSpacing: -0.22,
@@ -368,6 +397,38 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    fontFamily: Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' }),
+    fontFamily: FontFamily.mono,
   },
+
+  // ── Dropdown menu ───────────────────────────────────────────────────────
+  menuOverlay: {
+    flex: 1,
+  },
+  menuDropdown: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 110 : 90,
+    right: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 6,
+    minWidth: 210,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  menuItemText: {
+    fontSize: 15,
+    color: '#e53e3e',
+    fontFamily: FontFamily.mono,
+  },
+
 });
