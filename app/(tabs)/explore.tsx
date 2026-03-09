@@ -48,6 +48,8 @@ const COL_GAP = 10;
 const CARD_W = (SCREEN_WIDTH - H_PAD * 2 - COL_GAP) / 2;
 const CARD_H = CARD_W * (4 / 3);
 
+type ViewMode = 'grid' | 'list';
+
 // ── Grid card ──────────────────────────────────────────────────────────────────
 
 function GridCard({
@@ -163,6 +165,75 @@ const gridStyles = StyleSheet.create({
   },
 });
 
+// ── List card ──────────────────────────────────────────────────────────────────
+
+function ListCard({
+  profile,
+  fontsLoaded,
+  onPress,
+}: {
+  profile: ProfileHit;
+  fontsLoaded: boolean;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+  const pid      = profile.user_id || profile.id || 0;
+  const imageUri = profile.image_url ?? `https://i.pravatar.cc/500?img=${(pid % 70) + 1}`;
+  const location = profile.city || profile.country || profile.location || null;
+
+  return (
+    <Pressable style={[listStyles.card, { backgroundColor: colors.surface, borderColor: 'rgba(70,94,138,0.1)' }]} onPress={onPress}>
+      <Image source={{ uri: imageUri }} style={listStyles.photo} resizeMode="cover" />
+      <View style={listStyles.info}>
+        <Text style={[listStyles.name, { color: colors.navy, fontFamily: fontsLoaded ? FontFamily.rocaRg : undefined }]} numberOfLines={1}>
+          {profile.name}
+        </Text>
+        {location && (
+          <View style={listStyles.locationRow}>
+            <MaterialIcons name="location-on" size={11} color={colors.textMuted} />
+            <Text style={[listStyles.location, { color: colors.textMuted, fontFamily: FontFamily.poppins }]} numberOfLines={1}>
+              {location}
+            </Text>
+          </View>
+        )}
+        {profile.interests && profile.interests.length > 0 && (
+          <View style={listStyles.tags}>
+            {profile.interests.slice(0, 3).map(tag => (
+              <View key={tag} style={[listStyles.tag, { backgroundColor: 'rgba(70,94,138,0.08)' }]}>
+                <Text style={[listStyles.tagText, { color: colors.secondary, fontFamily: FontFamily.poppins }]} numberOfLines={1}>
+                  {tag}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+      <MaterialIcons name="chevron-right" size={20} color="rgba(70,94,138,0.3)" />
+    </Pressable>
+  );
+}
+
+const listStyles = StyleSheet.create({
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginHorizontal: H_PAD,
+    marginBottom: 10,
+  },
+  photo: { width: 56, height: 56, borderRadius: 14, backgroundColor: '#C8C0B4' },
+  info: { flex: 1, gap: 4 },
+  name: { fontSize: 15, letterSpacing: -0.2 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  location: { fontSize: 12 },
+  tags: { flexDirection: 'row', gap: 5, flexWrap: 'wrap' },
+  tag: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999 },
+  tagText: { fontSize: 10 },
+});
+
 // ── Screen ─────────────────────────────────────────────────────────────────────
 
 export default function ExploreScreen() {
@@ -183,6 +254,7 @@ export default function ExploreScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   const rawParams = useLocalSearchParams<{
     cities?: string;
@@ -285,7 +357,7 @@ export default function ExploreScreen() {
       {/* ── White card section ───────────────────────────────────────────── */}
       <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
 
-        {/* Filter + count row */}
+        {/* Filter + toggle row */}
         <View style={styles.filterRow}>
           <Pressable
             style={[
@@ -315,29 +387,54 @@ export default function ExploreScreen() {
             </Text>
           </Pressable>
 
-          {hasSearched && !loading && (
-            <Text style={[styles.resultsCount, { color: colors.textMuted, fontFamily: FontFamily.mono }]}>
-              {results.length} profil{results.length !== 1 ? 's' : ''}
-            </Text>
-          )}
+          <View style={styles.rightRow}>
+            {hasSearched && !loading && (
+              <Text style={[styles.resultsCount, { color: colors.textMuted, fontFamily: FontFamily.mono }]}>
+                {results.length} profil{results.length !== 1 ? 's' : ''}
+              </Text>
+            )}
+            <View style={[styles.viewToggle, { backgroundColor: 'rgba(70,94,138,0.08)' }]}>
+              <Pressable
+                style={[styles.viewBtn, viewMode === 'grid' && styles.viewBtnActive]}
+                onPress={() => setViewMode('grid')}
+              >
+                <MaterialIcons name="grid-view" size={15} color={viewMode === 'grid' ? colors.navy : 'rgba(70,94,138,0.4)'} />
+              </Pressable>
+              <Pressable
+                style={[styles.viewBtn, viewMode === 'list' && styles.viewBtnActive]}
+                onPress={() => setViewMode('list')}
+              >
+                <MaterialIcons name="format-list-bulleted" size={15} color={viewMode === 'list' ? colors.navy : 'rgba(70,94,138,0.4)'} />
+              </Pressable>
+            </View>
+          </View>
         </View>
 
-        {/* Grid */}
+        {/* Grid / List */}
         <FlatList
+          key={viewMode}
           data={results}
           keyExtractor={(item) => item.id.toString()}
-          numColumns={2}
-          columnWrapperStyle={styles.row}
-          contentContainerStyle={styles.gridContent}
+          numColumns={viewMode === 'grid' ? 2 : 1}
+          columnWrapperStyle={viewMode === 'grid' ? styles.row : undefined}
+          contentContainerStyle={viewMode === 'grid' ? styles.gridContent : styles.listContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          renderItem={({ item }) => (
-            <GridCard
-              profile={item}
-              fontsLoaded={fontsLoaded}
-              onPress={() => router.push(`/user-profile?id=${item.user_id}`)}
-            />
-          )}
+          renderItem={({ item }) =>
+            viewMode === 'grid' ? (
+              <GridCard
+                profile={item}
+                fontsLoaded={fontsLoaded}
+                onPress={() => router.push(`/user-profile?id=${item.user_id}`)}
+              />
+            ) : (
+              <ListCard
+                profile={item}
+                fontsLoaded={fontsLoaded}
+                onPress={() => router.push(`/user-profile?id=${item.user_id}`)}
+              />
+            )
+          }
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -419,6 +516,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: H_PAD,
     marginBottom: 16,
   },
+  rightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  viewToggle: {
+    flexDirection: 'row',
+    borderRadius: 9,
+    padding: 3,
+    gap: 2,
+  },
+  viewBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 7,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewBtnActive: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
   filterBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -438,6 +561,11 @@ const styles = StyleSheet.create({
   },
   gridContent: {
     paddingHorizontal: H_PAD,
+    paddingBottom: 100,
+    flexGrow: 1,
+  },
+  listContent: {
+    paddingTop: 4,
     paddingBottom: 100,
     flexGrow: 1,
   },
