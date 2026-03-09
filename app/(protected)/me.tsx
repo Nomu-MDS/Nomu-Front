@@ -115,8 +115,12 @@ export default function MeScreen() {
   const { colors, shadows } = useTheme();
 
   const [fontsLoaded] = useFonts({
-    'RocaOne-Rg': require('@/assets/fonts/roca/RocaOne-Rg.ttf'),
-    'RocaOne-Bold': require('@/assets/fonts/roca/RocaOne-Bold.ttf'),
+    'RocaOne-Rg':      require('@/assets/fonts/roca/RocaOne-Rg.ttf'),
+    'RocaOne-Bold':     require('@/assets/fonts/roca/RocaOne-Bold.ttf'),
+    'Poppins-Regular':  require('@/assets/fonts/poppins/Poppins-Regular.ttf'),
+    'Poppins-Medium':   require('@/assets/fonts/poppins/Poppins-Medium.ttf'),
+    'Poppins-SemiBold': require('@/assets/fonts/poppins/Poppins-SemiBold.ttf'),
+    'Poppins-Bold':     require('@/assets/fonts/poppins/Poppins-Bold.ttf'),
   });
 
   const [user, setUser] = useState<User | null>(null);

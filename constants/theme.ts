@@ -205,18 +205,14 @@ export const Shadows = {
 
 // ─── Typographie ─────────────────────────────────────────────────────────────
 export const FontFamily = {
-  rocaBold: 'RocaOne-Bold',
-  rocaRg: 'RocaOne-Rg',
-  mono: Platform.select({
-    ios: 'Courier',
-    android: 'monospace',
-    default: 'monospace',
-  }) as string,
-  system: Platform.select({
-    ios: 'System',
-    android: 'normal',
-    default: 'normal',
-  }) as string,
+  rocaBold:        'RocaOne-Bold',
+  rocaRg:          'RocaOne-Rg',
+  poppins:         'Poppins-Regular',
+  poppinsMedium:   'Poppins-Medium',
+  poppinsSemiBold: 'Poppins-SemiBold',
+  poppinsBold:     'Poppins-Bold',
+  /** @deprecated utilise poppins à la place */
+  mono: 'Poppins-Regular',
 };
 
 // Conservé pour la rétrocompatibilité avec les imports existants
