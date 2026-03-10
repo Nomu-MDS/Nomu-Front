@@ -12,6 +12,7 @@ interface ReservationBubbleProps {
   currentUserId: number;
   createdAt: string;
   otherUserName?: string;
+  onStatusChange?: () => void;
 }
 
 const NAVY   = '#0E224A';
@@ -57,7 +58,7 @@ function formatTime(iso: string) {
   return `${h}:${m} ${d.getHours() >= 12 ? 'PM' : 'AM'}`;
 }
 
-export function ReservationBubble({ data, currentUserId, createdAt, otherUserName }: ReservationBubbleProps) {
+export function ReservationBubble({ data, currentUserId, createdAt, otherUserName, onStatusChange }: ReservationBubbleProps) {
   const [fontsLoaded] = useFonts({
     'RocaOne-Rg':   require('@/assets/fonts/roca/RocaOne-Rg.ttf'),
     'RocaOne-Bold': require('@/assets/fonts/roca/RocaOne-Bold.ttf'),
@@ -89,6 +90,7 @@ export function ReservationBubble({ data, currentUserId, createdAt, otherUserNam
       });
       if (!res.ok) throw new Error(`Erreur ${res.status}`);
       setStatus(action === 'accept' ? 'accepted' : 'declined');
+      onStatusChange?.();
     } catch (e: any) {
       Alert.alert('Erreur', e.message || 'Action impossible.');
     } finally {
@@ -97,8 +99,8 @@ export function ReservationBubble({ data, currentUserId, createdAt, otherUserNam
   };
 
   return (
-    <View style={styles.wrapper}>
-      <View style={styles.card}>
+    <View style={[styles.wrapper, isCreator ? styles.wrapperSent : styles.wrapperReceived]}>
+      <View style={[styles.card, isCreator ? styles.cardSent : styles.cardReceived]}>
 
         {/* ── Avatar ── */}
         <View style={styles.avatar}>
@@ -173,7 +175,7 @@ export function ReservationBubble({ data, currentUserId, createdAt, otherUserNam
       </View>
 
       {/* ── Timestamp ── */}
-      <Text style={[styles.timestamp, { fontFamily: FontFamily.mono }]}>
+      <Text style={[styles.timestamp, { fontFamily: FontFamily.mono, alignSelf: isCreator ? 'flex-end' : 'flex-start' }]}>
         {formatTime(createdAt)}
       </Text>
     </View>
@@ -182,86 +184,97 @@ export function ReservationBubble({ data, currentUserId, createdAt, otherUserNam
 
 const styles = StyleSheet.create({
   wrapper: {
-    marginVertical: 8,
-    paddingHorizontal: 16,
-    gap: 4,
+    marginVertical: 4,
+    paddingHorizontal: 12,
+    gap: 3,
+  },
+  wrapperSent: {
+    alignItems: 'flex-end',
+  },
+  wrapperReceived: {
+    alignItems: 'flex-start',
   },
   card: {
     backgroundColor: BG,
-    borderRadius: 24,
+    borderRadius: 18,
     borderWidth: 1.5,
     borderColor: BLUE,
-    padding: 20,
-    gap: 16,
-    maxWidth: '92%',
-    alignSelf: 'center',
-    width: '100%',
+    padding: 14,
+    gap: 12,
+    maxWidth: '82%',
+  },
+  cardSent: {
+    alignSelf: 'flex-end',
+  },
+  cardReceived: {
+    alignSelf: 'flex-start',
   },
 
   // Avatar
   avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: BLUE,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarText: {
     color: CREAM,
-    fontSize: 18,
+    fontSize: 13,
     fontWeight: '700',
   },
 
   // Subtitle
   subtitle: {
-    fontSize: 20,
+    fontSize: 15,
     color: NAVY,
-    lineHeight: 26,
-    letterSpacing: -0.3,
+    lineHeight: 20,
+    letterSpacing: -0.2,
   },
 
   // Ticket
   ticket: {
     backgroundColor: BLUE,
-    borderRadius: 16,
-    padding: 18,
-    gap: 10,
+    borderRadius: 12,
+    padding: 12,
+    gap: 6,
   },
   ticketHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: 8,
   },
   ticketTitle: {
     color: CREAM,
-    fontSize: 26,
-    letterSpacing: -0.5,
+    fontSize: 16,
+    letterSpacing: -0.3,
     flex: 1,
-    lineHeight: 30,
+    lineHeight: 20,
+    fontWeight: '600',
   },
   ticketDate: {
     color: CREAM,
-    fontSize: 13,
+    fontSize: 12,
     opacity: 0.85,
-    paddingTop: 4,
     flexShrink: 0,
   },
   ticketMeta: {
     color: CREAM,
-    fontSize: 14,
-    letterSpacing: -0.2,
+    fontSize: 12,
+    letterSpacing: -0.1,
+    opacity: 0.9,
   },
 
   // Buttons
   actionsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
   btn: {
     flex: 1,
-    height: 50,
+    height: 40,
     borderRadius: 100,
     justifyContent: 'center',
     alignItems: 'center',
@@ -276,22 +289,22 @@ const styles = StyleSheet.create({
   },
   declineBtnText: {
     color: NAVY,
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600',
   },
   acceptBtnText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600',
   },
 
   // Status
   statusRow: {
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   statusLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
   },
 
@@ -300,6 +313,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#888',
     opacity: 0.7,
-    alignSelf: 'center',
   },
 });
