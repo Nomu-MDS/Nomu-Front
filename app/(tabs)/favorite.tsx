@@ -146,8 +146,9 @@ export default function ReservationsScreen() {
 
   const dayResas = selectedDate
     ? filtered.filter(r => {
-        const d = new Date(selectedDate + 'T12:00:00');
-        return d >= new Date(r.date) && d <= new Date(r.end_date);
+        const s = toDateStr(new Date(r.date));
+        const e = toDateStr(new Date(r.end_date));
+        return selectedDate >= s && selectedDate <= e;
       })
     : [];
 
