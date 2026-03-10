@@ -28,8 +28,10 @@
               "NSIncludesSubdomains": true
             }
           }
-        }
-      }
+        },
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.macoke.NomuFront"
     },
     "android": {
       "adaptiveIcon": {
@@ -39,7 +41,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.macoke.NomuFront"
     },
     "web": {
       "output": "static",
@@ -66,7 +69,11 @@
       "reactCompiler": true
     },
     "extra": {
-      "note": "Retiré apiBaseUrl car IP obsolète; utiliser EXPO_PUBLIC_API_BASE_URL ou détection dynamique"
+      "note": "Retiré apiBaseUrl car IP obsolète; utiliser EXPO_PUBLIC_API_BASE_URL ou détection dynamique",
+      "router": {},
+      "eas": {
+        "projectId": "e54e3a8d-b6a3-4696-9f13-279db4070520"
+      }
     }
   }
 }
