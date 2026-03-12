@@ -25,14 +25,14 @@ import { type ProfileHit } from '@/components/ui/profile-card';
 // ── Static data ────────────────────────────────────────────────────────────────
 
 const DESTINATIONS = [
-  { city: 'Paris',      country: 'France',      photo: 'photo-1502602898657-3e91760cbb34' },
-  { city: 'Tokyo',      country: 'Japon',        photo: 'photo-1540959733332-eab4deabeeaf' },
-  { city: 'New York',   country: 'États-Unis',   photo: 'photo-1469854523086-cc02fe5d8800' },
-  { city: 'London',     country: 'Angleterre',   photo: 'photo-1513635269975-59663e0ac1ad' },
-  { city: 'Berlin',     country: 'Allemagne',    photo: 'photo-1560969184-10fe8719e047' },
-  { city: 'Rome',       country: 'Italie',       photo: 'photo-1552832230-c0197dd311b5' },
-  { city: 'Marrakech',  country: 'Maroc',        photo: 'photo-1530026186672-2cd00ffc50fe' },
-  { city: 'Barcelone',  country: 'Espagne',      photo: 'photo-1539037116277-4db20889f2d4' },
+  { city: 'Paris',      country: 'France',   photo: 'photo-1502602898657-3e91760cbb34' },
+  { city: 'Lyon',       country: 'France',   photo: 'photo-1558618666-fcd25c85cd64' },
+  { city: 'Marseille',  country: 'France',   photo: 'photo-1602928298849-325cec8771c0' },
+  { city: 'Nice',       country: 'France',   photo: 'photo-1562408590-e32931084e23' },
+  { city: 'Bordeaux',   country: 'France',   photo: 'photo-1514933651103-005eec06c04b' },
+  { city: 'Strasbourg', country: 'France',   photo: 'photo-1537041373723-3e8ad1f7f5f4' },
+  { city: 'Annecy',     country: 'France',   photo: 'photo-1555080899-1584fc3b6fc0' },
+  { city: 'Toulouse',   country: 'France',   photo: 'photo-1549608276-5786777e6587' },
 ];
 
 function timeGreeting() {
