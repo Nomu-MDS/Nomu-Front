@@ -24,7 +24,8 @@ import { SvgXml } from "react-native-svg";
 
 import { FilterBadge } from "@/components/ui/filter-badge";
 import { API_BASE_URL } from "@/constants/config";
-import { setToken } from "@/lib/session";
+import { setRefreshToken, setToken } from "@/lib/session";
+import { uploadProfilePhoto } from "@/lib/upload";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -197,12 +198,16 @@ export default function SignupScreen() {
       if (!token) throw new Error("Token manquant");
 
       await setToken(token);
+      const rt = getParam("refreshToken");
+      if (rt) await setRefreshToken(rt);
 
       if (getParam("new") === "1") {
-        // Nouveau compte Google → passer aux intérêts
+        // Nouveau compte Google → step photo (pré-remplie) puis intérêts
         setGoogleToken(token);
         setIsGoogleSignup(true);
-        setStep(3);
+        const googlePhoto = getParam("photo");
+        if (googlePhoto) setAvatarUrl(googlePhoto);
+        setStep(2);
       } else {
         // Compte existant → connexion directe
         router.replace("/(tabs)/profile");
@@ -270,10 +275,28 @@ export default function SignupScreen() {
         }
 
         await setToken(token);
+        if (loginData.refreshToken) await setRefreshToken(loginData.refreshToken);
         console.log("[Signup] Auto-login réussi, token stocké");
       }
 
-      // 3. Mettre à jour le profil avec les intérêts sélectionnés
+      // 3. Uploader l'avatar si l'utilisateur a choisi un fichier local
+      if (avatarUrl && !avatarUrl.startsWith("http")) {
+        try {
+          const uploadedUrl = await uploadProfilePhoto(avatarUrl);
+          await fetch(`${API_BASE_URL}/users/profile`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ image_url: uploadedUrl }),
+          });
+        } catch (uploadErr) {
+          console.warn("[Signup] Erreur upload avatar (non bloquant):", uploadErr);
+        }
+      }
+
+      // 4. Mettre à jour le profil avec les intérêts sélectionnés
       if (selectedInterestIds.length > 0) {
         try {
           const profileResponse = await fetch(`${API_BASE_URL}/users/profile`, {
@@ -297,7 +320,7 @@ export default function SignupScreen() {
         }
       }
 
-      // 4. Rediriger vers le profil
+      // 5. Rediriger vers le profil
       router.replace("/(tabs)/profile");
     } catch (err: any) {
       console.error("[Signup] Erreur:", err);
@@ -340,7 +363,11 @@ export default function SignupScreen() {
           {/* Barre de progression en haut */}
           <View style={styles.topBar}>
             <Pressable
-              onPress={() => (step === 1 ? router.back() : setStep(step - 1))}
+              onPress={() => {
+                if (step === 1) router.back();
+                else if (isGoogleSignup && step === 2) router.back();
+                else setStep(step - 1);
+              }}
               hitSlop={12}
               style={styles.backButton}
             >

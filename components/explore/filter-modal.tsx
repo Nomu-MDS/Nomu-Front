@@ -15,7 +15,14 @@ import { API_BASE_URL } from '@/constants/config';
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-const CITIES = ['New York', 'London', 'Paris', 'Pekin', 'Berlin', 'Rome', 'Tokyo'];
+const CITIES = [
+  'Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse',
+  'Nice', 'Nantes', 'Strasbourg', 'Montpellier', 'Lille',
+  'Grenoble', 'Rennes', 'Brest', 'Annecy', 'Chambéry',
+  'Nancy', 'Metz', 'Bayonne', 'Pau', 'Reims',
+  'Tours', 'La Rochelle', 'Caen', 'Rouen', 'Dijon',
+  'Clermont-Ferrand', 'Perpignan', 'Toulon', 'Avignon', 'Aix-en-Provence',
+];
 const LANGUAGES = ['Français', 'Anglais', 'Espagnol', 'Italien', 'Arabe', 'Portugais', 'Mandarin'];
 const SEXES = ['Femme', 'Homme', 'Non-binaire'];
 const PRICES = ['10-20 €', '20-30 €', '30-40 €', '40-50 €', '50-60 €', '60-70 €', '70-80 €'];

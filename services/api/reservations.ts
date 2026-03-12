@@ -1,23 +1,4 @@
-import { API_BASE_URL } from '@/constants/config';
-import { getToken } from '@/lib/session';
-
-async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
-  const token = getToken();
-  if (!token) throw new Error('Token manquant');
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...options.headers,
-    },
-  });
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.error || `Erreur ${response.status}`);
-  }
-  return response.json();
-}
+import { fetchWithAuth } from '@/lib/api';
 
 export interface ReservationUser {
   id: number;

@@ -20,7 +20,7 @@ import {
 import { SvgXml } from "react-native-svg";
 
 import { API_BASE_URL } from "@/constants/config";
-import { setToken } from "@/lib/session";
+import { setRefreshToken, setToken } from "@/lib/session";
 
 const googleLogoSvg = `<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
   <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
@@ -63,6 +63,8 @@ export default function LoginScreen() {
       const token = getParam("token");
       if (!token) throw new Error("Token manquant");
       await setToken(token);
+      const rt = getParam("refreshToken");
+      if (rt) await setRefreshToken(rt);
       router.replace(getParam("new") === "1" ? "/onboarding" : "/(tabs)/profile");
     } catch (err: any) {
       Alert.alert("Erreur", err.message || "Impossible de se connecter avec Google");
@@ -99,6 +101,7 @@ export default function LoginScreen() {
       }
 
       await setToken(token);
+      if (data.refreshToken) await setRefreshToken(data.refreshToken);
       console.log("[Login] Connexion réussie");
       router.replace("/profile");
     } catch (err: any) {

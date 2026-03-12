@@ -1,6 +1,5 @@
 // Service API pour les conversations HTTP
-import { API_BASE_URL } from '@/constants/config';
-import { getToken } from '@/lib/session';
+import { fetchWithAuth } from '@/lib/api';
 import type {
   Conversation,
   CreateConversationPayload,
@@ -9,35 +8,6 @@ import type {
   GetMessagesParams,
   GetMessagesResponse,
 } from '@/types/message';
-
-/**
- * Helper pour faire des requêtes authentifiées
- */
-async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
-  const token = getToken();
-  if (!token) {
-    throw new Error('Token manquant');
-  }
-
-  const url = `${API_BASE_URL}${endpoint}`;
-  console.log(`[API] ${options.method || 'GET'} ${url}`);
-
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...options.headers,
-    },
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Erreur ${response.status}`);
-  }
-
-  return response.json();
-}
 
 /**
  * Récupère toutes les conversations de l'utilisateur
