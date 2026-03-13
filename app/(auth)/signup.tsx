@@ -320,7 +320,7 @@ export default function SignupScreen() {
         }
       }
 
-      // 5. Rediriger vers le profil
+      // 5. Présentation de l'app puis profil
       router.replace("/(tabs)/profile");
     } catch (err: any) {
       console.error("[Signup] Erreur:", err);
@@ -474,9 +474,15 @@ export default function SignupScreen() {
                           style={styles.avatarImage}
                         />
                       ) : (
-                        <Text style={styles.avatarPlaceholder}>
-                          Add a photo
-                        </Text>
+                        <>
+                          <LinearGradient
+                            colors={["rgba(228,219,203,0.18)", "rgba(228,219,203,0.55)"]}
+                            style={StyleSheet.absoluteFillObject}
+                          />
+                          <Text style={styles.avatarPlaceholder}>
+                            Add a photo
+                          </Text>
+                        </>
                       )}
                     </View>
                     <View style={styles.cameraBadge}>
@@ -499,20 +505,24 @@ export default function SignupScreen() {
 
               {step === 3 && (
                 <View style={styles.formSection}>
-                  <Text style={styles.title}>Your Interests</Text>
+                  <Text style={styles.title}>Choose your vibe</Text>
 
                   {loadingInterests ? (
                     <ActivityIndicator size="small" color="#E9E0D0" />
                   ) : (
                     <View style={styles.interestsGrid}>
-                      {interests.map((interest) => (
-                        <FilterBadge
-                          key={interest.id}
-                          label={interest.name}
-                          selected={selectedInterestIds.includes(interest.id)}
-                          onPress={() => toggleInterest(interest.id)}
-                        />
-                      ))}
+                      {interests.map((interest) => {
+                        const active = selectedInterestIds.includes(interest.id);
+                        return (
+                          <Pressable
+                            key={interest.id}
+                            style={[styles.interestTag, active && styles.interestTagActive]}
+                            onPress={() => toggleInterest(interest.id)}
+                          >
+                            <Text style={styles.interestTagText}>{interest.name}</Text>
+                          </Pressable>
+                        );
+                      })}
                     </View>
                   )}
                 </View>
@@ -547,7 +557,7 @@ export default function SignupScreen() {
                     ? "Next"
                     : isSubmitting
                       ? "Creating..."
-                      : "Finish"}
+                      : "Rejoindre Nomu"}
                 </Text>
               </Pressable>
             </ScrollView>
@@ -660,7 +670,7 @@ const styles = StyleSheet.create({
   },
   avatarPlaceholder: {
     fontSize: 16,
-    color: "rgba(233, 224, 208, 0.6)",
+    color: "#E4DBCB",
   },
   skipButton: {
     alignSelf: "center",
@@ -692,7 +702,23 @@ const styles = StyleSheet.create({
   interestsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12,
+    gap: 10,
+  },
+  interestTag: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: "transparent",
+    backgroundColor: "rgba(37,37,39,0.41)",
+  },
+  interestTagActive: {
+    borderColor: "#465E8A",
+  },
+  interestTagText: {
+    fontFamily: "RocaOne-Rg",
+    fontSize: 15,
+    color: "#E4DBCB",
   },
   button: {
     backgroundColor: "#E9E0D0",

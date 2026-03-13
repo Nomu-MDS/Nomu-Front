@@ -25,15 +25,26 @@ import { type ProfileHit } from '@/components/ui/profile-card';
 // ── Static data ────────────────────────────────────────────────────────────────
 
 const DESTINATIONS = [
-  { city: 'Paris',      country: 'France',   photo: 'photo-1502602898657-3e91760cbb34' },
-  { city: 'Lyon',       country: 'France',   photo: 'photo-1558618666-fcd25c85cd64' },
-  { city: 'Marseille',  country: 'France',   photo: 'photo-1602928298849-325cec8771c0' },
-  { city: 'Nice',       country: 'France',   photo: 'photo-1562408590-e32931084e23' },
-  { city: 'Bordeaux',   country: 'France',   photo: 'photo-1514933651103-005eec06c04b' },
-  { city: 'Strasbourg', country: 'France',   photo: 'photo-1537041373723-3e8ad1f7f5f4' },
-  { city: 'Annecy',     country: 'France',   photo: 'photo-1555080899-1584fc3b6fc0' },
-  { city: 'Toulouse',   country: 'France',   photo: 'photo-1549608276-5786777e6587' },
+  { city: 'Paris',      country: 'France' },
+  { city: 'Lyon',       country: 'France' },
+  { city: 'Marseille',  country: 'France' },
+  { city: 'Nice',       country: 'France' },
+  { city: 'Bordeaux',   country: 'France' },
+  { city: 'Strasbourg', country: 'France' },
+  { city: 'Annecy',     country: 'France' },
+  { city: 'Toulouse',   country: 'France' },
 ];
+
+function useWikiImage(city: string) {
+  const [uri, setUri] = useState<string | null>(null);
+  useEffect(() => {
+    fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(city)}`)
+      .then((r) => r.json())
+      .then((d) => setUri(d?.originalimage?.source ?? d?.thumbnail?.source ?? null))
+      .catch(() => {});
+  }, [city]);
+  return uri;
+}
 
 function timeGreeting() {
   const h = new Date().getHours();
@@ -82,19 +93,19 @@ function LocalCard({ profile, onPress }: { profile: ProfileHit; onPress: () => v
 // ── Destination card ──────────────────────────────────────────────────────────
 
 const DEST_W = 200;
-const DEST_H = 185;
+const DEST_H = 300;
 
 function DestCard({
-  city, country, photo, onPress,
-}: { city: string; country: string; photo: string; onPress: () => void }) {
+  city, country, onPress,
+}: { city: string; country: string; onPress: () => void }) {
   const { shadows } = useTheme();
-  const uri = `https://images.unsplash.com/${photo}?w=400&q=80&fit=crop&crop=center`;
+  const uri = useWikiImage(city);
   return (
     <Pressable
       style={[styles.destCard, shadows.md, { width: DEST_W, height: DEST_H }]}
       onPress={onPress}
     >
-      <Image source={{ uri }} style={StyleSheet.absoluteFill as any} resizeMode="cover" />
+      {uri && <Image source={{ uri }} style={StyleSheet.absoluteFill as any} resizeMode="cover" />}
       <LinearGradient
         colors={['transparent', 'rgba(10,20,50,0.55)', 'rgba(10,20,50,0.88)']}
         locations={[0.35, 0.65, 1]}
@@ -365,8 +376,7 @@ export default function HomeScreen() {
                   key={d.city}
                   city={d.city}
                   country={d.country}
-                  photo={d.photo}
-                  onPress={() => router.push('/explore')}
+                  onPress={() => router.push({ pathname: '/(tabs)/explore', params: { cities: d.city } })}
                 />
               ))}
             </ScrollView>

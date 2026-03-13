@@ -4,10 +4,10 @@ import { Platform } from 'react-native';
 // Toutes les valeurs brutes de couleur. Ne jamais utiliser directement dans les
 // composants — utiliser les tokens sémantiques de `Colors` ci-dessous.
 const palette = {
-  // Brand orange
-  primary: '#FF6A57',
-  primaryMuted: '#FF8A78',
-  darkPrimary: '#E15B4A',
+  // Brand red
+  primary: '#AF3437',
+  primaryMuted: '#C55558',
+  darkPrimary: '#8F2B2E',
 
   // Brand blue (accent secondaire)
   secondary: '#465E8A',

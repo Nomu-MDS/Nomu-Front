@@ -65,7 +65,7 @@ export default function LoginScreen() {
       await setToken(token);
       const rt = getParam("refreshToken");
       if (rt) await setRefreshToken(rt);
-      router.replace(getParam("new") === "1" ? "/onboarding" : "/(tabs)/profile");
+      router.replace(getParam("new") === "1" ? "/presentation?next=onboarding" : "/(tabs)/profile");
     } catch (err: any) {
       Alert.alert("Erreur", err.message || "Impossible de se connecter avec Google");
     } finally {
