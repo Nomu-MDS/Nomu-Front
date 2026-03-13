@@ -389,8 +389,8 @@ export default function EditProfileScreen() {
                 <Switch
                   value={isSearchable}
                   onValueChange={setIsSearchable}
-                  trackColor={{ false: colors.separator, true: colors.primary + '80' }}
-                  thumbColor={isSearchable ? colors.primary : '#D0D0D0'}
+                  trackColor={{ false: 'rgba(0,0,0,0.15)', true: colors.primary }}
+                  thumbColor={isSearchable ? '#FFFFFF' : '#F4F4F4'}
                 />
               </View>
             </View>

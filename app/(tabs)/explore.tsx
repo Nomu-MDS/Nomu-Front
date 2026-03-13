@@ -296,10 +296,8 @@ export default function ExploreScreen() {
       const token = getToken();
       const params = new URLSearchParams();
 
-      const queryParts: string[] = [];
-      if (searchQuery) queryParts.push(searchQuery);
-      if (filters.cities.length > 0) queryParts.push(filters.cities.join(' '));
-      if (queryParts.length > 0) params.append('q', queryParts.join(' '));
+      if (searchQuery) params.append('q', searchQuery);
+      if (filters.cities.length > 0) params.append('filterCity', filters.cities.join(','));
       if (filters.categories.length > 0) params.append('filterInterests', filters.categories.join(','));
       params.append('limit', '20');
 

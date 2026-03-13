@@ -138,24 +138,21 @@ const styles = StyleSheet.create({
   },
   tag: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 9999,
+    paddingVertical: 12,
+    borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: "rgba(70,94,138,0.3)",
-    backgroundColor: "#fff",
+    borderColor: "transparent",
+    backgroundColor: "rgba(37,37,39,0.41)",
   },
   tagActive: {
-    backgroundColor: "#465E8A",
     borderColor: "#465E8A",
   },
   tagText: {
-    fontSize: 14,
-    color: "#465E8A",
-    fontWeight: "500",
+    fontFamily: "RocaOne-Rg",
+    fontSize: 15,
+    color: "#E4DBCB",
   },
-  tagTextActive: {
-    color: "#fff",
-  },
+  tagTextActive: {},
   btn: {
     backgroundColor: "#465E8A",
     borderRadius: 9999,

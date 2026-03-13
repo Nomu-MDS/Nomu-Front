@@ -278,7 +278,11 @@ export default function ChatScreen() {
           <MaterialIcons name="arrow-back" size={22} color={DARK} />
         </Pressable>
 
-        <View style={styles.userInfo}>
+        <Pressable
+          style={styles.userInfo}
+          onPress={() => otherUser && router.push({ pathname: '/(protected)/user-profile', params: { id: String(otherUser.id) } })}
+          hitSlop={4}
+        >
           <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
             <Text style={styles.avatarInitials}>{initials}</Text>
           </View>
@@ -287,7 +291,7 @@ export default function ChatScreen() {
               {otherUser?.name || 'Conversation'}
             </Text>
           </View>
-        </View>
+        </Pressable>
 
         <Pressable
           style={styles.menuButton}
