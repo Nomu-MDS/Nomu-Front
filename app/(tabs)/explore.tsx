@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts } from 'expo-font';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -285,12 +285,20 @@ export default function ExploreScreen() {
   }, [rawParams.cities, rawParams.languages, rawParams.categories, rawParams.sexes, rawParams.prices]);
 
   const debouncedQuery = useDebounce(query, 400);
+  const abortRef = useRef<AbortController | null>(null);
 
   const performSearch = useCallback(async (
     searchQuery: string,
     filters: FilterState,
     isRefresh = false,
   ) => {
+    // Ne pas rechercher pour une query d'1 seul caractère
+    if (searchQuery.length === 1) return;
+
+    // Annuler la requête précédente si encore en vol
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+
     if (!isRefresh) setLoading(true);
     try {
       const token = getToken();
@@ -304,14 +312,18 @@ export default function ExploreScreen() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const response = await fetch(`${API_BASE_URL}/users/search?${params.toString()}`, { headers });
+      const response = await fetch(`${API_BASE_URL}/users/search?${params.toString()}`, {
+        headers,
+        signal: abortRef.current.signal,
+      });
       if (response.ok) {
         const data: SearchResult = await response.json();
         setResults(data.hits);
       } else {
         setResults([]);
       }
-    } catch {
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') return;
       setResults([]);
     } finally {
       setLoading(false);
