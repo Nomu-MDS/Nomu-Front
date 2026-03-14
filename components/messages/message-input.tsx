@@ -216,11 +216,15 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: Platform.OS === 'ios' ? 28 : 12,
     gap: 8,
+    zIndex: 10,
+    overflow: 'visible',
   },
   // ── Popup ──────────────────────────────────────────────
   popup: {
-    alignSelf: 'flex-start',
-    marginLeft: 4,
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 100 : 84,
+    left: 4,
+    zIndex: 100,
     borderRadius: 16,
     borderWidth: 1,
     overflow: 'hidden',
