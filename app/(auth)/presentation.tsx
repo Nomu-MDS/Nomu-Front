@@ -124,7 +124,7 @@ function DiscussMockup() {
 function MeetMockup() {
   return (
     <View style={mk.meetCard}>
-      <View style={mk.meetAvatar} />
+      <Image source={{ uri: 'https://i.pravatar.cc/500?img=47' }} style={mk.meetAvatar} resizeMode="cover" />
       <Text style={mk.meetSender}>Amina vous a envoyé une offre</Text>
       <View style={mk.meetReservation}>
         <View style={{ flex: 1 }}>
@@ -289,7 +289,7 @@ export default function PresentationScreen() {
     if (next === "onboarding") {
       router.replace("/(auth)/onboarding");
     } else {
-      router.replace("/(tabs)/profile");
+      router.replace("/(tabs)/home");
     }
   };
 
@@ -457,7 +457,7 @@ const mk = StyleSheet.create({
 
   // ─ Meet reservation card
   meetCard: {
-    backgroundColor: "rgba(255,255,255,0.75)",
+    backgroundColor: "rgba(255,255,255,1)",
     borderWidth: 2,
     borderColor: "#465E8A",
     borderRadius: 10,

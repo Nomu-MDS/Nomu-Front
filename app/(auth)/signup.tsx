@@ -320,8 +320,8 @@ export default function SignupScreen() {
         }
       }
 
-      // 5. Présentation de l'app puis profil
-      router.replace("/(tabs)/profile");
+      // 5. Présentation de l'app
+      router.replace("/(auth)/presentation");
     } catch (err: any) {
       console.error("[Signup] Erreur:", err);
       Alert.alert(

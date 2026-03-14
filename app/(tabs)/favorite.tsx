@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useFonts } from 'expo-font';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -23,6 +23,7 @@ import {
   declineReservation,
   type Reservation,
 } from '@/services/api/reservations';
+import { connectSocket, getSocket } from '@/services/socket';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const DOT_COLORS = {
@@ -94,8 +95,55 @@ export default function ReservationsScreen() {
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [activeTab, setActiveTab]         = useState<TabValue>('all');
   const [viewMode, setViewMode]           = useState<ViewMode>('calendar');
-  const [selectedDate, setSelectedDate]   = useState<string | null>(null);
+  const [selectedDate, setSelectedDate]   = useState<string | null>(toDateStr(new Date()));
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+
+  const joinedConvIdsRef = useRef<Set<number>>(new Set());
+
+  // ── Real-time socket handlers (stable refs) ────────────────────────────────
+  const handleReservationCreated = useCallback((data: { reservation: Reservation }) => {
+    setReservations(prev =>
+      prev.some(r => r.id === data.reservation.id) ? prev : [...prev, data.reservation]
+    );
+  }, []);
+
+  const handleReservationUpdated = useCallback((data: { reservation: Reservation }) => {
+    setReservations(prev =>
+      prev.map(r => r.id === data.reservation.id ? { ...r, ...data.reservation } : r)
+    );
+  }, []);
+
+  // Register socket listeners once on mount
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    connectSocket(token);
+    const socket = getSocket();
+    if (!socket) return;
+
+    socket.on('reservation_created', handleReservationCreated);
+    socket.on('reservation_updated', handleReservationUpdated);
+
+    return () => {
+      socket.off('reservation_created', handleReservationCreated);
+      socket.off('reservation_updated', handleReservationUpdated);
+    };
+  }, [handleReservationCreated, handleReservationUpdated]);
+
+  // Join conversation rooms whenever the reservations list changes
+  useEffect(() => {
+    if (!reservations.length) return;
+    const socket = getSocket();
+    if (!socket) return;
+
+    const convIds = [...new Set(reservations.map(r => r.conversation_id).filter(Boolean))];
+    convIds.forEach(id => {
+      if (!joinedConvIdsRef.current.has(id)) {
+        socket.emit('join_conversation', { conversation_id: id });
+        joinedConvIdsRef.current.add(id);
+      }
+    });
+  }, [reservations]);
 
   // ── Load ───────────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {

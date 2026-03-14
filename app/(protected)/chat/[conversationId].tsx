@@ -253,8 +253,8 @@ export default function ChatScreen() {
 
   const handleReservationCreated = (reservation: ReservationApi) => {
     setReservationModalVisible(false);
-    // Ajout optimiste dans la timeline
-    setReservations(prev => [...prev, reservation]);
+    // Ajout avec garde anti-doublon (le socket reservation_created peut aussi arriver)
+    setReservations(prev => prev.some(r => r.id === reservation.id) ? prev : [...prev, reservation]);
     // Notifie l'autre utilisateur via WS (message système filtré côté affichage)
     const socket = getSocket();
     if (socket?.connected) {

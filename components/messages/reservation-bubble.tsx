@@ -1,5 +1,5 @@
 import { useFonts } from 'expo-font';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { API_BASE_URL } from '@/constants/config';
@@ -66,6 +66,9 @@ export function ReservationBubble({ data, currentUserId, createdAt, otherUserNam
 
   const [status, setStatus]           = useState<ReservationStatus>(data.status);
   const [actionLoading, setActionLoading] = useState<'accept' | 'decline' | null>(null);
+
+  // Sync when parent updates status via socket (reservation_updated)
+  useEffect(() => { setStatus(data.status); }, [data.status]);
 
   const isCreator = currentUserId === data.creator_id;
   const canAct    = !isCreator && status === 'pending';
