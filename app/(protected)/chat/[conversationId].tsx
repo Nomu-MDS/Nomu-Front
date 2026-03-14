@@ -168,7 +168,10 @@ export default function ChatScreen() {
           if (isSystemMessage(data.message.content)) {
             // ignoré : reservation_created gère la mise à jour temps réel
           } else {
-            setMessages((prev) => [...prev, data.message]);
+            setMessages((prev) => {
+              if (prev.some(m => m.id === data.message.id)) return prev;
+              return [...prev, data.message];
+            });
             const currentId = currentUserIdRef.current;
             if (currentId && data.message.user_id !== currentId) {
               socket.emit('message_read', { message_id: data.message.id });
