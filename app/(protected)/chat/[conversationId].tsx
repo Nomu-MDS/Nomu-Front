@@ -194,6 +194,12 @@ export default function ChatScreen() {
           );
         });
 
+        socket.on('reservation_updated', (data: { reservation: ReservationApi }) => {
+          setReservations((prev) =>
+            prev.map((r) => r.id === data.reservation.id ? { ...r, ...data.reservation } : r)
+          );
+        });
+
         socket.on('error', (error) => {
           Alert.alert('Erreur', error.message || 'Une erreur est survenue');
         });
@@ -215,6 +221,7 @@ export default function ChatScreen() {
         socket.off('new_message');
         socket.off('user_typing');
         socket.off('message_read_update');
+        socket.off('reservation_updated');
         socket.off('error');
       }
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
