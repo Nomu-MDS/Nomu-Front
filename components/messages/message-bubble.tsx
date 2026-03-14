@@ -62,7 +62,7 @@ export function MessageBubble({ message, isCurrentUser, currentUserId, otherUser
             resizeMode="cover"
           />
         )}
-        {message.content ? (
+        {message.content?.trim() ? (
           <Text
             style={[
               styles.content,

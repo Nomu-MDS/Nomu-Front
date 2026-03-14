@@ -65,7 +65,7 @@ export default function LoginScreen() {
       await setToken(token);
       const rt = getParam("refreshToken");
       if (rt) await setRefreshToken(rt);
-      router.replace(getParam("new") === "1" ? "/presentation?next=onboarding" : "/(tabs)/profile");
+      router.replace(getParam("new") === "1" ? "/presentation?next=onboarding" : "/(tabs)/home");
     } catch (err: any) {
       Alert.alert("Erreur", err.message || "Impossible de se connecter avec Google");
     } finally {
@@ -103,7 +103,7 @@ export default function LoginScreen() {
       await setToken(token);
       if (data.refreshToken) await setRefreshToken(data.refreshToken);
       console.log("[Login] Connexion réussie");
-      router.replace("/profile");
+      router.replace("/(tabs)/home");
     } catch (err: any) {
       console.error("[Login] Erreur:", err);
       Alert.alert("Connexion échouée", err.message || "Veuillez réessayer");
