@@ -157,9 +157,15 @@ export default function ChatScreen() {
 
         socket.on('joined_conversation', () => {});
 
+        socket.on('reservation_created', (data: { reservation: ReservationApi }) => {
+          setReservations((prev) =>
+            prev.some((r) => r.id === data.reservation.id) ? prev : [...prev, data.reservation]
+          );
+        });
+
         socket.on('new_message', (data) => {
           if (isSystemMessage(data.message.content)) {
-            loadReservations();
+            // ignoré : reservation_created gère la mise à jour temps réel
           } else {
             setMessages((prev) => [...prev, data.message]);
             const currentId = currentUserIdRef.current;
@@ -221,6 +227,7 @@ export default function ChatScreen() {
         socket.off('new_message');
         socket.off('user_typing');
         socket.off('message_read_update');
+        socket.off('reservation_created');
         socket.off('reservation_updated');
         socket.off('error');
       }
