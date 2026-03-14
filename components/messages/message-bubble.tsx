@@ -47,12 +47,16 @@ export function MessageBubble({ message, isCurrentUser, currentUserId, otherUser
     return `${h12}:${m} ${period}`;
   };
 
+  const isImageOnly = !!message.attachment && !message.content?.trim();
+
   return (
     <View style={[styles.wrapper, isCurrentUser ? styles.wrapperSent : styles.wrapperReceived]}>
       <View
         style={[
           styles.bubble,
-          { backgroundColor: isCurrentUser ? colors.messageSent : colors.messageReceived },
+          isImageOnly
+            ? styles.bubbleImageOnly
+            : { backgroundColor: isCurrentUser ? colors.messageSent : colors.messageReceived },
         ]}
       >
         {message.attachment && (
@@ -105,6 +109,12 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     paddingHorizontal: 20,
     paddingVertical: 10,
+  },
+  bubbleImageOnly: {
+    maxWidth: '78%',
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
   content: {
     fontFamily: FontFamily.mono,
