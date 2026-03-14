@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Platform,
   Pressable,
   RefreshControl,
@@ -259,13 +260,7 @@ export default function MessagesScreen() {
           renderItem={({ item }) => {
             const otherUser = item.voyager_id === currentUserId ? item.Local : item.Voyager;
             const lastMessage = item.Messages?.[0];
-
-            const initials = otherUser.name
-              .split(' ')
-              .map((n: string) => n[0])
-              .join('')
-              .toUpperCase()
-              .slice(0, 2);
+            const avatarUri = otherUser.image_url ?? `https://i.pravatar.cc/500?img=${(otherUser.id % 70) + 1}`;
 
             const unreadCount = item.Messages?.filter(
               (msg: Message) => !msg.read && msg.user_id !== currentUserId
@@ -277,9 +272,7 @@ export default function MessagesScreen() {
                 onPress={() => handleOpenConversation(item.id)}
               >
                 <View style={styles.avatarWrapper}>
-                  <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
-                    <Text style={styles.initials}>{initials}</Text>
-                  </View>
+                  <Image source={{ uri: avatarUri }} style={styles.avatarImg} resizeMode="cover" />
                 </View>
 
                 <View style={styles.conversationContent}>
@@ -381,17 +374,10 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
   },
-  avatarPlaceholder: {
+  avatarImg: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  initials: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
   },
   conversationContent: {
     flex: 1,

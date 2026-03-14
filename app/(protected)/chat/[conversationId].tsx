@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -271,10 +272,9 @@ export default function ChatScreen() {
     }
   };
 
-  // Initiales de l'autre utilisateur
-  const initials = otherUser
-    ? otherUser.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
-    : '?';
+  const avatarUri = otherUser
+    ? (otherUser.image_url ?? `https://i.pravatar.cc/500?img=${(otherUser.id % 70) + 1}`)
+    : `https://i.pravatar.cc/500?img=1`;
 
   if (loading || !fontsLoaded) {
     return (
@@ -297,9 +297,7 @@ export default function ChatScreen() {
           onPress={() => otherUser && router.push({ pathname: '/(protected)/user-profile', params: { id: String(otherUser.id) } })}
           hitSlop={4}
         >
-          <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
-            <Text style={styles.avatarInitials}>{initials}</Text>
-          </View>
+          <Image source={{ uri: avatarUri }} style={styles.avatar} resizeMode="cover" />
           <View style={styles.userTexts}>
             <Text style={styles.userName} numberOfLines={1}>
               {otherUser?.name || 'Conversation'}
@@ -427,14 +425,7 @@ const styles = StyleSheet.create({
     width: 37,
     height: 37,
     borderRadius: 19,
-    justifyContent: 'center',
-    alignItems: 'center',
     flexShrink: 0,
-  },
-  avatarInitials: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
   },
   userTexts: {
     gap: 2,

@@ -33,6 +33,7 @@ export interface User {
   name: string;
   email: string;
   firebase_uid: string;
+  image_url?: string | null;
 }
 
 export interface Message {
