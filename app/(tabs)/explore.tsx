@@ -307,7 +307,7 @@ export default function ExploreScreen() {
       if (searchQuery) params.append('q', searchQuery);
       if (filters.cities.length > 0) params.append('filterCity', filters.cities.join(','));
       if (filters.categories.length > 0) params.append('filterInterests', filters.categories.join(','));
-      params.append('limit', '20');
+      params.append('limit', '50');
 
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
