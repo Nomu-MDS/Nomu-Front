@@ -1,8 +1,8 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts } from 'expo-font';
-import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Image,
   Platform,
@@ -21,6 +21,9 @@ import { useTheme } from '@/hooks/use-theme';
 import { decodeJwt } from '@/lib/jwt';
 import { getToken, getTokenAsync } from '@/lib/session';
 import { type ProfileHit } from '@/components/ui/profile-card';
+import { getMyReservations, type Reservation } from '@/services/api/reservations';
+import { getConversations } from '@/services/api/conversations';
+import type { Conversation } from '@/types/message';
 
 // ── Static data ────────────────────────────────────────────────────────────────
 
@@ -191,10 +194,13 @@ export default function HomeScreen() {
   const [personalised, setPersonalised] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterState>(EMPTY_FILTERS);
+  const [upcomingReservations, setUpcomingReservations] = useState<Reservation[]>([]);
+  const [recentConversations, setRecentConversations] = useState<Conversation[]>([]);
+  const [myUserId, setMyUserId] = useState<number | null>(null);
 
   // ── Init ────────────────────────────────────────────────────────────────────
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     (async () => {
       const token = await getTokenAsync();
       if (!token) { router.replace('/login'); return; }
@@ -202,6 +208,9 @@ export default function HomeScreen() {
       const claims = decodeJwt(token);
       const name: string = claims?.name || claims?.first_name || '';
       setFirstName(name.split(' ')[0] || null);
+
+      const uid: number | null = claims?.id || claims?.userId || claims?.sub || claims?.user_id || null;
+      if (uid) setMyUserId(uid);
 
       try {
         const headers: Record<string, string> = {
@@ -232,16 +241,30 @@ export default function HomeScreen() {
           ? `${API_BASE_URL}/users/search?filterInterests=${encodeURIComponent(filterParam)}&limit=10`
           : `${API_BASE_URL}/users/search?limit=10`;
 
-        const localsRes = await fetch(localsUrl, { headers });
+        const [localsRes, reservationsData, conversationsData] = await Promise.all([
+          fetch(localsUrl, { headers }),
+          getMyReservations().catch(() => [] as Reservation[]),
+          getConversations().catch(() => ({ conversations: [] as Conversation[] })),
+        ]);
+
         if (localsRes.ok) {
           const data = await localsRes.json();
           setFeaturedLocals(data.hits ?? []);
         }
+
+        const now = new Date();
+        const upcoming = reservationsData
+          .filter((r) => r.status !== 'declined' && new Date(r.date) >= now)
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+          .slice(0, 3);
+        setUpcomingReservations(upcoming);
+
+        setRecentConversations((conversationsData.conversations ?? []).slice(0, 3));
       } catch {
         // silencieux
       }
     })();
-  }, [router]);
+  }, [router]));  // useFocusEffect + useCallback
 
   const goToExplore = () => {
     router.push('/explore');
@@ -407,52 +430,136 @@ export default function HomeScreen() {
 
           {/* ── Prochaines activités ── */}
           <View style={styles.section}>
-            <SectionHeader title="Prochaines activités" fontsLoaded={fontsLoaded} />
-            <Pressable
-              style={({ pressed }) => [
-                styles.emptyCard,
-                { borderColor: colors.separator, opacity: pressed ? 0.75 : 1 },
-              ]}
-              onPress={() => router.push('/explore')}
-            >
-              <View style={[styles.emptyIcon, { backgroundColor: colors.tagBackground }]}>
-                <MaterialIcons name="event" size={22} color={colors.secondary} />
-              </View>
-              <View style={styles.emptyText}>
-                <Text style={[styles.emptyTitle, { color: colors.navy, fontFamily: FontFamily.mono }]}>
-                  Aucune activité prévue
-                </Text>
-                <Text style={[styles.emptySubtitle, { color: colors.textMuted, fontFamily: FontFamily.mono }]}>
-                  Explorez des locals pour planifier votre prochain voyage
-                </Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={20} color={colors.textMuted} />
-            </Pressable>
+            <SectionHeader
+              title="Prochaines activités"
+              linkLabel={upcomingReservations.length > 0 ? 'Voir tout' : undefined}
+              onLink={() => router.push('/(tabs)/favorite')}
+              fontsLoaded={fontsLoaded}
+            />
+            {upcomingReservations.length === 0 ? (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.emptyCard,
+                  { borderColor: colors.separator, opacity: pressed ? 0.75 : 1 },
+                ]}
+                onPress={() => router.push('/explore')}
+              >
+                <View style={[styles.emptyIcon, { backgroundColor: colors.tagBackground }]}>
+                  <MaterialIcons name="event" size={22} color={colors.secondary} />
+                </View>
+                <View style={styles.emptyText}>
+                  <Text style={[styles.emptyTitle, { color: colors.navy, fontFamily: FontFamily.mono }]}>
+                    Aucune activité prévue
+                  </Text>
+                  <Text style={[styles.emptySubtitle, { color: colors.textMuted, fontFamily: FontFamily.mono }]}>
+                    Explorez des locals pour planifier votre prochain voyage
+                  </Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color={colors.textMuted} />
+              </Pressable>
+            ) : (
+              upcomingReservations.map((res) => {
+                const dateObj = new Date(res.date);
+                const dateStr = dateObj.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+                const timeStr = dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                const isPending = res.status === 'pending';
+                return (
+                  <Pressable
+                    key={res.id}
+                    style={({ pressed }) => [
+                      styles.emptyCard,
+                      { borderColor: colors.separator, opacity: pressed ? 0.85 : 1 },
+                    ]}
+                    onPress={() => router.push('/(tabs)/favorite')}
+                  >
+                    <View style={[styles.emptyIcon, { backgroundColor: isPending ? '#FFF3CD' : '#D4EDDA' }]}>
+                      <MaterialIcons name="event" size={22} color={isPending ? '#856404' : '#155724'} />
+                    </View>
+                    <View style={styles.emptyText}>
+                      <Text style={[styles.emptyTitle, { color: colors.navy, fontFamily: FontFamily.mono }]} numberOfLines={1}>
+                        {res.title}
+                      </Text>
+                      <Text style={[styles.emptySubtitle, { color: colors.textMuted, fontFamily: FontFamily.mono }]}>
+                        {dateStr} à {timeStr} · {isPending ? 'En attente' : 'Confirmée'}
+                      </Text>
+                    </View>
+                    <MaterialIcons name="chevron-right" size={20} color={colors.textMuted} />
+                  </Pressable>
+                );
+              })
+            )}
           </View>
 
           {/* ── Derniers messages ── */}
           <View style={styles.section}>
-            <SectionHeader title="Derniers messages" fontsLoaded={fontsLoaded} />
-            <Pressable
-              style={({ pressed }) => [
-                styles.emptyCard,
-                { borderColor: colors.separator, opacity: pressed ? 0.75 : 1 },
-              ]}
-              onPress={() => router.push('/explore')}
-            >
-              <View style={[styles.emptyIcon, { backgroundColor: colors.tagBackground }]}>
-                <MaterialIcons name="chat-bubble-outline" size={22} color={colors.secondary} />
-              </View>
-              <View style={styles.emptyText}>
-                <Text style={[styles.emptyTitle, { color: colors.navy, fontFamily: FontFamily.mono }]}>
-                  Aucun message récent
-                </Text>
-                <Text style={[styles.emptySubtitle, { color: colors.textMuted, fontFamily: FontFamily.mono }]}>
-                  Démarrez une conversation avec un local
-                </Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={20} color={colors.textMuted} />
-            </Pressable>
+            <SectionHeader
+              title="Derniers messages"
+              linkLabel={recentConversations.length > 0 ? 'Voir tout' : undefined}
+              onLink={() => router.push('/messages')}
+              fontsLoaded={fontsLoaded}
+            />
+            {recentConversations.length === 0 ? (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.emptyCard,
+                  { borderColor: colors.separator, opacity: pressed ? 0.75 : 1 },
+                ]}
+                onPress={() => router.push('/explore')}
+              >
+                <View style={[styles.emptyIcon, { backgroundColor: colors.tagBackground }]}>
+                  <MaterialIcons name="chat-bubble-outline" size={22} color={colors.secondary} />
+                </View>
+                <View style={styles.emptyText}>
+                  <Text style={[styles.emptyTitle, { color: colors.navy, fontFamily: FontFamily.mono }]}>
+                    Aucun message récent
+                  </Text>
+                  <Text style={[styles.emptySubtitle, { color: colors.textMuted, fontFamily: FontFamily.mono }]}>
+                    Démarrez une conversation avec un local
+                  </Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color={colors.textMuted} />
+              </Pressable>
+            ) : (
+              recentConversations.map((conv) => {
+                const otherUser = conv.voyager_id === myUserId ? conv.Local : conv.Voyager;
+                const lastMsg = conv.Messages?.[0];
+                const initials = otherUser?.name
+                  ? otherUser.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+                  : '?';
+                const preview = lastMsg
+                  ? lastMsg.attachment
+                    ? '📷 Photo'
+                    : lastMsg.content?.startsWith('{"__type":"reservation"')
+                      ? 'Activité proposée'
+                      : lastMsg.content
+                  : 'Aucun message';
+                return (
+                  <Pressable
+                    key={conv.id}
+                    style={({ pressed }) => [
+                      styles.emptyCard,
+                      { borderColor: colors.separator, opacity: pressed ? 0.85 : 1 },
+                    ]}
+                    onPress={() => router.push(`/chat/${conv.id}`)}
+                  >
+                    <Image
+                      source={{ uri: otherUser?.image_url ?? `https://i.pravatar.cc/100?u=${conv.id}` }}
+                      style={styles.convAvatar}
+                      resizeMode="cover"
+                    />
+                    <View style={styles.emptyText}>
+                      <Text style={[styles.emptyTitle, { color: colors.navy, fontFamily: FontFamily.mono }]} numberOfLines={1}>
+                        {otherUser?.name ?? 'Utilisateur'}
+                      </Text>
+                      <Text style={[styles.emptySubtitle, { color: colors.textMuted, fontFamily: FontFamily.mono }]} numberOfLines={1}>
+                        {preview}
+                      </Text>
+                    </View>
+                    <MaterialIcons name="chevron-right" size={20} color={colors.textMuted} />
+                  </Pressable>
+                );
+              })
+            )}
           </View>
 
         </ScrollView>
@@ -619,6 +726,13 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     fontSize: 12,
     lineHeight: 17,
+  },
+
+  convAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    flexShrink: 0,
   },
 
 });
