@@ -1,5 +1,6 @@
-import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ReservationBubble } from '@/components/messages/reservation-bubble';
 import { FontFamily } from '@/constants/theme';
@@ -48,23 +49,36 @@ export function MessageBubble({ message, isCurrentUser, currentUserId, otherUser
   };
 
   const isImageOnly = !!message.attachment && !message.content?.trim();
+  const [viewerVisible, setViewerVisible] = useState(false);
 
   return (
     <View style={[styles.wrapper, isCurrentUser ? styles.wrapperSent : styles.wrapperReceived]}>
+      {message.attachment && viewerVisible && (
+        <Modal visible animationType="fade" transparent onRequestClose={() => setViewerVisible(false)}>
+          <SafeAreaView style={styles.viewerOverlay}>
+            <Pressable style={styles.viewerClose} onPress={() => setViewerVisible(false)}>
+              <Text style={styles.viewerCloseText}>✕</Text>
+            </Pressable>
+            <Image source={{ uri: message.attachment }} style={styles.viewerImage} resizeMode="contain" />
+          </SafeAreaView>
+        </Modal>
+      )}
+
       <View
-        style={[
-          styles.bubble,
+        style={
           isImageOnly
             ? styles.bubbleImageOnly
-            : { backgroundColor: isCurrentUser ? colors.messageSent : colors.messageReceived },
-        ]}
+            : [styles.bubble, { backgroundColor: isCurrentUser ? colors.messageSent : colors.messageReceived }]
+        }
       >
         {message.attachment && (
-          <Image
-            source={{ uri: message.attachment }}
-            style={styles.attachment}
-            resizeMode="cover"
-          />
+          <Pressable onPress={() => setViewerVisible(true)}>
+            <Image
+              source={{ uri: message.attachment }}
+              style={styles.attachment}
+              resizeMode="cover"
+            />
+          </Pressable>
         )}
         {message.content?.trim() ? (
           <Text
@@ -112,9 +126,6 @@ const styles = StyleSheet.create({
   },
   bubbleImageOnly: {
     maxWidth: '78%',
-    backgroundColor: 'transparent',
-    paddingHorizontal: 0,
-    paddingVertical: 0,
   },
   content: {
     fontFamily: FontFamily.mono,
@@ -123,13 +134,34 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   attachment: {
-    width: 200,
-    height: 150,
-    borderRadius: 12,
-    marginBottom: 4,
+    width: 220,
+    height: 165,
+    borderRadius: 16,
+  },
+  viewerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewerClose: {
+    position: 'absolute',
+    top: 16,
+    right: 20,
+    zIndex: 10,
+    padding: 8,
+  },
+  viewerCloseText: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '600',
+  },
+  viewerImage: {
+    width: '100%',
+    height: '80%',
   },
   timestamp: {
-    fontFamily: FontFamily.system,
+    fontFamily: FontFamily.poppins,
     fontSize: 11,
     opacity: 0.7,
     letterSpacing: -0.22,
