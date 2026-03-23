@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image, Modal, Platform, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
 
 import { ReservationBubble } from '@/components/messages/reservation-bubble';
 import { FontFamily } from '@/constants/theme';
@@ -48,49 +47,43 @@ export function MessageBubble({ message, isCurrentUser, currentUserId, otherUser
     return `${h12}:${m} ${period}`;
   };
 
-  const isImageOnly = !!message.attachment && !message.content?.trim();
   const [viewerVisible, setViewerVisible] = useState(false);
 
   return (
     <View style={[styles.wrapper, isCurrentUser ? styles.wrapperSent : styles.wrapperReceived]}>
       {message.attachment && viewerVisible && (
-        <Modal visible animationType="fade" transparent onRequestClose={() => setViewerVisible(false)}>
-          <SafeAreaView style={styles.viewerOverlay}>
+        <Modal visible animationType="fade" transparent statusBarTranslucent onRequestClose={() => setViewerVisible(false)}>
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+          <Pressable style={styles.viewerOverlay} onPress={() => setViewerVisible(false)}>
+            <Image
+              source={{ uri: message.attachment }}
+              style={styles.viewerImage}
+              resizeMode="contain"
+            />
             <Pressable style={styles.viewerClose} onPress={() => setViewerVisible(false)}>
               <Text style={styles.viewerCloseText}>✕</Text>
             </Pressable>
-            <Image source={{ uri: message.attachment }} style={styles.viewerImage} resizeMode="contain" />
-          </SafeAreaView>
+          </Pressable>
         </Modal>
       )}
 
-      <View
-        style={
-          isImageOnly
-            ? styles.bubbleImageOnly
-            : [styles.bubble, { backgroundColor: isCurrentUser ? colors.messageSent : colors.messageReceived }]
-        }
-      >
-        {message.attachment && (
-          <Pressable onPress={() => setViewerVisible(true)}>
-            <Image
-              source={{ uri: message.attachment }}
-              style={styles.attachment}
-              resizeMode="cover"
-            />
-          </Pressable>
-        )}
-        {message.content?.trim() ? (
-          <Text
-            style={[
-              styles.content,
-              { color: isCurrentUser ? colors.messageSentText : colors.messageReceivedText },
-            ]}
-          >
+      {message.attachment && (
+        <Pressable onPress={() => setViewerVisible(true)}>
+          <Image
+            source={{ uri: message.attachment }}
+            style={styles.attachment}
+            resizeMode="cover"
+          />
+        </Pressable>
+      )}
+
+      {message.content?.trim() ? (
+        <View style={[styles.bubble, { backgroundColor: isCurrentUser ? colors.messageSent : colors.messageReceived }]}>
+          <Text style={[styles.content, { color: isCurrentUser ? colors.messageSentText : colors.messageReceivedText }]}>
             {message.content}
           </Text>
-        ) : null}
-      </View>
+        </View>
+      ) : null}
 
       <Text
         style={[
@@ -124,9 +117,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
-  bubbleImageOnly: {
-    maxWidth: '78%',
-  },
+
   content: {
     fontFamily: FontFamily.mono,
     fontSize: 12,
@@ -140,25 +131,30 @@ const styles = StyleSheet.create({
   },
   viewerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.92)',
+    backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
   },
+  viewerImage: {
+    width: '100%',
+    height: '100%',
+  },
   viewerClose: {
     position: 'absolute',
-    top: 16,
+    top: Platform.OS === 'ios' ? 56 : 36,
     right: 20,
-    zIndex: 10,
-    padding: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   viewerCloseText: {
     color: '#fff',
-    fontSize: 22,
-    fontWeight: '600',
-  },
-  viewerImage: {
-    width: '100%',
-    height: '80%',
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 18,
   },
   timestamp: {
     fontFamily: FontFamily.poppins,
