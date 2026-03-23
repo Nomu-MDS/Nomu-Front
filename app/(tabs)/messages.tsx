@@ -284,10 +284,10 @@ export default function MessagesScreen() {
                   </Text>
                   <Text style={[styles.lastMessage, { color: colors.textSecondary, fontFamily: FontFamily.mono }]} numberOfLines={1}>
                     {lastMessage
-                      ? lastMessage.attachment
-                        ? '📷 Photo'
-                        : lastMessage.content?.startsWith('{"__type":"reservation"')
-                          ? 'Activité proposée'
+                      ? lastMessage.content?.startsWith('{"__type":"reservation"')
+                        ? 'Activité proposée'
+                        : lastMessage.attachment
+                          ? '📷 Photo'
                           : lastMessage.content
                       : 'Aucun message'}
                   </Text>
