@@ -17,6 +17,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getConversations } from '@/services/api/conversations';
+import { getMyReservations, type Reservation } from '@/services/api/reservations';
 import { getToken } from '@/lib/session';
 import { decodeJwt } from '@/lib/jwt';
 import { connectSocket, getSocket } from '@/services/socket';
@@ -27,6 +28,7 @@ export default function MessagesScreen() {
   const { colors } = useTheme();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
@@ -68,7 +70,10 @@ export default function MessagesScreen() {
         return;
       }
 
-      const { conversations: convList } = await getConversations();
+      const [{ conversations: convList }, resaList] = await Promise.all([
+        getConversations(),
+        getMyReservations().catch(() => [] as Reservation[]),
+      ]);
 
       if (convList.length > 0) {
         const firstConv = convList[0];
@@ -85,6 +90,7 @@ export default function MessagesScreen() {
       }
 
       setConversations(convList);
+      setReservations(resaList);
     } catch (err: any) {
       if (!silent) {
         setError(err.message || 'Impossible de charger les conversations');
@@ -142,7 +148,10 @@ export default function MessagesScreen() {
             return;
           }
 
-          const { conversations: convList } = await getConversations();
+          const [{ conversations: convList }, resaList] = await Promise.all([
+            getConversations(),
+            getMyReservations().catch(() => [] as Reservation[]),
+          ]);
 
           if (convList.length > 0) {
             const firstConv = convList[0];
@@ -161,6 +170,7 @@ export default function MessagesScreen() {
           }
 
           setConversations(convList);
+          setReservations(resaList);
           setLoading(false);
           setRefreshing(false);
         } catch (err: any) {
@@ -283,13 +293,17 @@ export default function MessagesScreen() {
                     {otherUser.name}
                   </Text>
                   <Text style={[styles.lastMessage, { color: colors.textSecondary, fontFamily: FontFamily.mono }]} numberOfLines={1}>
-                    {lastMessage
-                      ? lastMessage.content?.startsWith('{"__type":"reservation"')
-                        ? 'Activité proposée'
-                        : lastMessage.attachment
-                          ? '📷 Photo'
-                          : lastMessage.content
-                      : 'Aucun message'}
+                    {(() => {
+                      const lastResa = reservations
+                        .filter(r => r.conversation_id === item.id)
+                        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+                      if (lastResa && (!lastMessage || new Date(lastResa.createdAt) > new Date(lastMessage.createdAt))) {
+                        return 'Activité proposée';
+                      }
+                      if (!lastMessage) return 'Aucun message';
+                      if (lastMessage.attachment) return '📷 Photo';
+                      return lastMessage.content;
+                    })()}
                   </Text>
                 </View>
 
