@@ -140,7 +140,7 @@ export default function LoginScreen() {
           </View>
 
           {/* Sign in text */}
-          <Text style={styles.signInText}>Sign in</Text>
+          <Text style={styles.signInText}>Connexion</Text>
 
           {/* Form */}
           <View style={styles.form}>
@@ -148,7 +148,7 @@ export default function LoginScreen() {
             <BlurView intensity={20} tint="light" style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
-                placeholder="Enter your email"
+                placeholder="Adresse email"
                 placeholderTextColor="rgba(255, 255, 255, 0.6)"
                 value={email}
                 onChangeText={(v) => { setEmail(v); setErrorMsg(null); }}
@@ -162,7 +162,7 @@ export default function LoginScreen() {
             <BlurView intensity={20} tint="light" style={styles.inputContainer}>
               <TextInput
                 style={[styles.input, styles.passwordInput]}
-                placeholder="Password"
+                placeholder="Mot de passe"
                 placeholderTextColor="rgba(255, 255, 255, 0.6)"
                 value={password}
                 onChangeText={(v) => { setPassword(v); setErrorMsg(null); }}
@@ -182,7 +182,7 @@ export default function LoginScreen() {
 
             {/* Forgot Password */}
             <Pressable style={styles.forgotPassword}>
-              <Text style={styles.forgotPasswordText}>Forgot Password ?</Text>
+              <Text style={styles.forgotPasswordText}>Mot de passe oublié ?</Text>
             </Pressable>
           </View>
 
@@ -201,14 +201,14 @@ export default function LoginScreen() {
             disabled={!formValid || isLoading}
           >
             <Text style={styles.loginButtonText}>
-              {isLoading ? "Loading..." : "Login"}
+              {isLoading ? "Chargement..." : "Se connecter"}
             </Text>
           </Pressable>
 
           {/* Separator */}
           <View style={styles.separatorContainer}>
             <View style={styles.separatorLine} />
-            <Text style={styles.separatorText}>Or</Text>
+            <Text style={styles.separatorText}>Ou</Text>
             <View style={styles.separatorLine} />
           </View>
 
@@ -219,11 +219,11 @@ export default function LoginScreen() {
             disabled={isGoogleLoading}
           >
             {isGoogleLoading ? (
-              <Text style={styles.googleButtonText}>Loading...</Text>
+              <Text style={styles.googleButtonText}>Chargement...</Text>
             ) : (
               <>
                 <SvgXml xml={googleLogoSvg} width={20} height={20} />
-                <Text style={styles.googleButtonText}>Continue with Google</Text>
+                <Text style={styles.googleButtonText}>Continuer avec Google</Text>
               </>
             )}
           </Pressable>
@@ -233,7 +233,7 @@ export default function LoginScreen() {
             style={styles.createAccountButton}
             onPress={() => router.push("/signup")}
           >
-            <Text style={styles.createAccountText}>Create an Account</Text>
+            <Text style={styles.createAccountText}>Créer un compte</Text>
           </Pressable>
         </KeyboardAvoidingView>
       </LinearGradient>
