@@ -2,7 +2,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useFonts } from "expo-font";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -24,7 +24,7 @@ import { SvgXml } from "react-native-svg";
 
 import { FilterBadge } from "@/components/ui/filter-badge";
 import { API_BASE_URL } from "@/constants/config";
-import { setRefreshToken, setToken } from "@/lib/session";
+import { getToken, setRefreshToken, setToken } from "@/lib/session";
 import { uploadProfilePhoto } from "@/lib/upload";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -47,6 +47,7 @@ interface Interest {
 export default function SignupScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { google: googleParam, photo: googlePhotoParam } = useLocalSearchParams<{ google?: string; photo?: string }>();
 
   const [step, setStep] = useState(1);
   const totalSteps = 3;
@@ -91,6 +92,15 @@ export default function SignupScreen() {
       }
     };
     fetchInterests();
+  }, []);
+
+  // Redirect depuis login.tsx avec Google (nouveau compte) → sauter directement à la photo
+  useEffect(() => {
+    if (googleParam === "1") {
+      setIsGoogleSignup(true);
+      if (googlePhotoParam) setAvatarUrl(decodeURIComponent(googlePhotoParam));
+      setStep(2);
+    }
   }, []);
 
   const emailValid = /\S+@\S+\.\S+/.test(email);
@@ -227,9 +237,10 @@ export default function SignupScreen() {
     try {
       let token: string;
 
-      if (isGoogleSignup && googleToken) {
-        // Flux Google : token déjà obtenu, pas besoin de signup/login
-        token = googleToken;
+      if (isGoogleSignup) {
+        // Flux Google : token déjà stocké en session (via signup.tsx ou login.tsx)
+        token = googleToken ?? getToken() ?? "";
+        if (!token) throw new Error("Token manquant");
       } else {
         const trimmedEmail = email.trim().toLowerCase();
 
