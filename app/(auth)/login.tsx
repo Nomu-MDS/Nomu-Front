@@ -44,6 +44,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleGoogleLogin = async () => {
     if (isGoogleLoading) return;
@@ -65,7 +66,12 @@ export default function LoginScreen() {
       await setToken(token);
       const rt = getParam("refreshToken");
       if (rt) await setRefreshToken(rt);
-      router.replace(getParam("new") === "1" ? "/presentation?next=onboarding" : "/(tabs)/home");
+      if (getParam("new") === "1") {
+        const photo = getParam("photo");
+        router.replace(`/(auth)/signup?google=1${photo ? `&photo=${encodeURIComponent(photo)}` : ""}`);
+      } else {
+        router.replace("/(tabs)/home");
+      }
     } catch (err: any) {
       Alert.alert("Erreur", err.message || "Impossible de se connecter avec Google");
     } finally {
@@ -79,6 +85,7 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (!formValid || isLoading) return;
 
+    setErrorMsg(null);
     setIsLoading(true);
     try {
       console.log("[Login] Connexion en cours...");
@@ -106,7 +113,7 @@ export default function LoginScreen() {
       router.replace("/(tabs)/home");
     } catch (err: any) {
       console.error("[Login] Erreur:", err);
-      Alert.alert("Connexion échouée", err.message || "Veuillez réessayer");
+      setErrorMsg(err.message || "Veuillez réessayer");
     } finally {
       setIsLoading(false);
     }
@@ -144,7 +151,7 @@ export default function LoginScreen() {
                 placeholder="Enter your email"
                 placeholderTextColor="rgba(255, 255, 255, 0.6)"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(v) => { setEmail(v); setErrorMsg(null); }}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"
@@ -158,7 +165,7 @@ export default function LoginScreen() {
                 placeholder="Password"
                 placeholderTextColor="rgba(255, 255, 255, 0.6)"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(v) => { setPassword(v); setErrorMsg(null); }}
                 secureTextEntry={!showPassword}
               />
               <Pressable
@@ -178,6 +185,11 @@ export default function LoginScreen() {
               <Text style={styles.forgotPasswordText}>Forgot Password ?</Text>
             </Pressable>
           </View>
+
+          {/* Error message */}
+          {errorMsg && (
+            <Text style={styles.errorText}>{errorMsg}</Text>
+          )}
 
           {/* Login Button */}
           <Pressable
@@ -350,5 +362,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "rgba(255, 255, 255, 0.7)",
     textDecorationLine: "underline",
+  },
+  errorText: {
+    fontSize: 14,
+    color: "#FF6A57",
+    textAlign: "center",
+    marginBottom: 12,
   },
 });
