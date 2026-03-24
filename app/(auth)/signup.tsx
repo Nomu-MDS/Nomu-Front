@@ -411,12 +411,12 @@ export default function SignupScreen() {
             >
               {step === 1 && (
                 <View style={styles.formSection}>
-                  <Text style={styles.title}>Create an account</Text>
+                  <Text style={styles.title}>Créer un compte</Text>
 
                   <View style={styles.inputGroup}>
                     <TextInput
                       style={styles.input}
-                      placeholder="Email address"
+                      placeholder="Adresse email"
                       placeholderTextColor="rgba(233, 224, 208, 0.5)"
                       value={email}
                       onChangeText={setEmail}
@@ -451,7 +451,7 @@ export default function SignupScreen() {
                   {/* Séparateur */}
                   <View style={styles.separatorContainer}>
                     <View style={styles.separatorLine} />
-                    <Text style={styles.separatorText}>Or</Text>
+                    <Text style={styles.separatorText}>Ou</Text>
                     <View style={styles.separatorLine} />
                   </View>
 
@@ -466,7 +466,7 @@ export default function SignupScreen() {
                     ) : (
                       <>
                         <SvgXml xml={googleLogoSvg} width={20} height={20} />
-                        <Text style={styles.googleButtonText}>Continue with Google</Text>
+                        <Text style={styles.googleButtonText}>Continuer avec Google</Text>
                       </>
                     )}
                   </Pressable>
@@ -475,7 +475,7 @@ export default function SignupScreen() {
 
               {step === 2 && (
                 <View style={styles.formSection}>
-                  <Text style={styles.title}>Create an account</Text>
+                  <Text style={styles.title}>Créer un compte</Text>
 
                   <Pressable style={styles.avatarContainer} onPress={pickImage}>
                     <View style={styles.avatarCircle}>
@@ -491,7 +491,7 @@ export default function SignupScreen() {
                             style={StyleSheet.absoluteFillObject}
                           />
                           <Text style={styles.avatarPlaceholder}>
-                            Add a photo
+                            Ajouter une photo
                           </Text>
                         </>
                       )}
@@ -509,14 +509,14 @@ export default function SignupScreen() {
                     onPress={() => setStep(step + 1)}
                     style={styles.skipButton}
                   >
-                    <Text style={styles.skipText}>Skip for now</Text>
+                    <Text style={styles.skipText}>Passer pour l'instant</Text>
                   </Pressable>
                 </View>
               )}
 
               {step === 3 && (
                 <View style={styles.formSection}>
-                  <Text style={styles.title}>Choose your vibe</Text>
+                  <Text style={styles.title}>Vos centres d'intérêt</Text>
 
                   {loadingInterests ? (
                     <ActivityIndicator size="small" color="#E9E0D0" />
@@ -565,9 +565,9 @@ export default function SignupScreen() {
               >
                 <Text style={styles.buttonText}>
                   {step < totalSteps
-                    ? "Next"
+                    ? "Suivant"
                     : isSubmitting
-                      ? "Creating..."
+                      ? "Création..."
                       : "Rejoindre Nomu"}
                 </Text>
               </Pressable>

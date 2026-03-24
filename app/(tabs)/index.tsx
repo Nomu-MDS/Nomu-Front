@@ -100,7 +100,7 @@ export default function HomeScreen() {
                   onPress={() => router.push("/login")}
                 >
                   <BlurView intensity={30} style={styles.blurButton}>
-                    <Text style={styles.signInText}>Sign in</Text>
+                    <Text style={styles.signInText}>Se connecter</Text>
                   </BlurView>
                 </Pressable>
 
@@ -109,7 +109,7 @@ export default function HomeScreen() {
                   onPress={() => router.push("/signup")}
                 >
                   <Text style={styles.createAccountText}>
-                    Create an account
+                    Créer un compte
                   </Text>
                 </Pressable>
               </View>

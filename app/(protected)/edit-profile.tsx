@@ -272,7 +272,7 @@ export default function EditProfileScreen() {
               </Pressable>
               <Pressable onPress={pickImage} hitSlop={8} disabled={uploading}>
                 <Text style={[styles.changePhoto, { color: colors.secondary, fontFamily: FontFamily.mono }]}>
-                  {uploading ? 'Upload en cours...' : 'Changer la photo'}
+                  {uploading ? 'Envoi en cours...' : 'Changer la photo'}
                 </Text>
               </Pressable>
             </View>
