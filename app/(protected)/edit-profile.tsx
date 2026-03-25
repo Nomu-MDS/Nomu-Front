@@ -75,6 +75,7 @@ export default function EditProfileScreen() {
   const [biography, setBiography] = useState('');
   const [city, setCity] = useState('');
   const [country, setCountry] = useState('');
+  const [gender, setGender] = useState('');
   const [age, setAge] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [isSearchable, setIsSearchable] = useState(true);
@@ -105,6 +106,7 @@ export default function EditProfileScreen() {
           if (p?.biography) setBiography(p.biography);
           if (p?.city) setCity(p.city);
           if (p?.country) setCountry(p.country);
+          if (p?.gender) setGender(p.gender);
           if (p?.age) setAge(p.age.toString());
           if (p?.image_url) setImageUrl(p.image_url);
           if (p?.is_searchable !== undefined) setIsSearchable(p.is_searchable);
@@ -185,6 +187,7 @@ export default function EditProfileScreen() {
         biography: biography.trim() || null,
         city: city.trim() || null,
         country: country.trim() || null,
+        gender: gender || null,
         age: age ? parseInt(age, 10) : null,
         is_searchable: isSearchable,
         interest_ids: selectedInterestIds,
@@ -311,6 +314,32 @@ export default function EditProfileScreen() {
                 <View style={styles.half}>
                   <Input label="Pays" placeholder="Votre pays" value={country} onChangeText={setCountry} />
                 </View>
+              </View>
+            </View>
+
+            {/* ── Genre ── */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, fontsLoaded ? { fontFamily: FontFamily.rocaRg } : {}, { color: colors.navy }]}>
+                Genre
+              </Text>
+              <View style={styles.tagsRow}>
+                {(['Femme', 'Homme', 'Non-binaire'] as const).map((option) => (
+                  <Pressable
+                    key={option}
+                    style={[
+                      styles.tag,
+                      {
+                        backgroundColor: gender === option ? colors.secondary : colors.tagBackground,
+                        borderColor: gender === option ? colors.secondary : colors.secondary + '40',
+                      },
+                    ]}
+                    onPress={() => setGender(gender === option ? '' : option)}
+                  >
+                    <Text style={[styles.tagText, { color: gender === option ? '#fff' : colors.secondary, fontFamily: FontFamily.mono }]}>
+                      {option}
+                    </Text>
+                  </Pressable>
+                ))}
               </View>
             </View>
 
