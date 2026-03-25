@@ -30,15 +30,14 @@ interface SearchResult {
   query: string;
   limit: number;
   estimatedTotalHits: number;
+  noRelevantResults?: boolean;
 }
 
 function countActiveFilters(filters: FilterState): number {
   return (
     filters.cities.length +
-    filters.languages.length +
     filters.categories.length +
-    filters.sexes.length +
-    filters.prices.length
+    filters.sexes.length
   );
 }
 
@@ -251,6 +250,7 @@ export default function ExploreScreen() {
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ProfileHit[]>([]);
+  const [noRelevantResults, setNoRelevantResults] = useState(false);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -258,31 +258,25 @@ export default function ExploreScreen() {
 
   const rawParams = useLocalSearchParams<{
     cities?: string;
-    languages?: string;
     categories?: string;
     sexes?: string;
-    prices?: string;
   }>();
 
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterState>(() => ({
     cities:     rawParams.cities     ? rawParams.cities.split(',')     : [],
-    languages:  rawParams.languages  ? rawParams.languages.split(',')  : [],
     categories: rawParams.categories ? rawParams.categories.split(',') : [],
     sexes:      rawParams.sexes      ? rawParams.sexes.split(',')      : [],
-    prices:     rawParams.prices     ? rawParams.prices.split(',')     : [],
   }));
 
   // Resync quand on navigue depuis home avec des params (tabs gardent le composant monté)
   useEffect(() => {
     setActiveFilters({
       cities:     rawParams.cities     ? rawParams.cities.split(',')     : [],
-      languages:  rawParams.languages  ? rawParams.languages.split(',')  : [],
       categories: rawParams.categories ? rawParams.categories.split(',') : [],
       sexes:      rawParams.sexes      ? rawParams.sexes.split(',')      : [],
-      prices:     rawParams.prices     ? rawParams.prices.split(',')     : [],
     });
-  }, [rawParams.cities, rawParams.languages, rawParams.categories, rawParams.sexes, rawParams.prices]);
+  }, [rawParams.cities, rawParams.categories, rawParams.sexes]);
 
   const debouncedQuery = useDebounce(query, 400);
   const abortRef = useRef<AbortController | null>(null);
@@ -307,6 +301,7 @@ export default function ExploreScreen() {
       if (searchQuery) params.append('q', searchQuery);
       if (filters.cities.length > 0) params.append('filterCity', filters.cities.join(','));
       if (filters.categories.length > 0) params.append('filterInterests', filters.categories.join(','));
+      if (filters.sexes.length > 0) params.append('filterSex', filters.sexes.join(','));
       params.append('limit', '50');
 
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -319,12 +314,15 @@ export default function ExploreScreen() {
       if (response.ok) {
         const data: SearchResult = await response.json();
         setResults(data.hits);
+        setNoRelevantResults(data.noRelevantResults ?? false);
       } else {
         setResults([]);
+        setNoRelevantResults(false);
       }
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
       setResults([]);
+      setNoRelevantResults(false);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -457,7 +455,7 @@ export default function ExploreScreen() {
             loading ? null : (
               <View style={styles.emptyContainer}>
                 <MaterialIcons
-                  name={hasSearched ? 'search-off' : 'explore'}
+                  name={noRelevantResults ? 'travel-explore' : hasSearched ? 'search-off' : 'explore'}
                   size={56}
                   color={colors.textMuted}
                 />
@@ -468,10 +466,16 @@ export default function ExploreScreen() {
                     fontsLoaded ? { fontFamily: FontFamily.rocaRg } : {},
                   ]}
                 >
-                  {hasSearched ? 'Aucun résultat' : 'Explorez des profils'}
+                  {noRelevantResults
+                    ? 'Aucun résultat pertinent'
+                    : hasSearched
+                    ? 'Aucun résultat'
+                    : 'Explorez des profils'}
                 </Text>
                 <Text style={[styles.emptySubtitle, { color: colors.textSecondary, fontFamily: FontFamily.mono }]}>
-                  {hasSearched
+                  {noRelevantResults
+                    ? 'Essayez une autre ville ou des termes plus généraux'
+                    : hasSearched
                     ? 'Modifiez votre recherche ou vos filtres'
                     : 'Recherchez par nom, ville ou intérêts'}
                 </Text>

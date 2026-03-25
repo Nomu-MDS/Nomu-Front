@@ -23,24 +23,18 @@ const CITIES = [
   'Tours', 'La Rochelle', 'Caen', 'Rouen', 'Dijon',
   'Clermont-Ferrand', 'Perpignan', 'Toulon', 'Avignon', 'Aix-en-Provence',
 ];
-const LANGUAGES = ['Français', 'Anglais', 'Espagnol', 'Italien', 'Arabe', 'Portugais', 'Mandarin'];
 const SEXES = ['Femme', 'Homme', 'Non-binaire'];
-const PRICES = ['10-20 €', '20-30 €', '30-40 €', '40-50 €', '50-60 €', '60-70 €', '70-80 €'];
 
 export interface FilterState {
   cities: string[];
-  languages: string[];
   categories: string[];
   sexes: string[];
-  prices: string[];
 }
 
 export const EMPTY_FILTERS: FilterState = {
   cities: [],
-  languages: [],
   categories: [],
   sexes: [],
-  prices: [],
 };
 
 interface FilterSectionProps {
@@ -169,13 +163,6 @@ export function FilterModal({ visible, onClose, onApply, initialFilters }: Filte
           fontsLoaded={fontsLoaded}
         />
         <FilterSection
-          title="Langue"
-          options={LANGUAGES}
-          selected={filters.languages}
-          onToggle={(item) => toggle('languages', item)}
-          fontsLoaded={fontsLoaded}
-        />
-        <FilterSection
           title="Centres d'intérêt"
           options={availableCategories}
           selected={filters.categories}
@@ -187,13 +174,6 @@ export function FilterModal({ visible, onClose, onApply, initialFilters }: Filte
           options={SEXES}
           selected={filters.sexes}
           onToggle={(item) => toggle('sexes', item)}
-          fontsLoaded={fontsLoaded}
-        />
-        <FilterSection
-          title="Prix"
-          options={PRICES}
-          selected={filters.prices}
-          onToggle={(item) => toggle('prices', item)}
           fontsLoaded={fontsLoaded}
         />
       </ScrollView>
