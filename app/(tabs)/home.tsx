@@ -19,7 +19,7 @@ import { API_BASE_URL } from '@/constants/config';
 import { FontFamily } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { decodeJwt } from '@/lib/jwt';
-import { getToken, getTokenAsync } from '@/lib/session';
+import { getTokenAsync } from '@/lib/session';
 import { type ProfileHit } from '@/components/ui/profile-card';
 import { getMyReservations, type Reservation } from '@/services/api/reservations';
 import { getConversations } from '@/services/api/conversations';
@@ -215,7 +215,7 @@ export default function HomeScreen() {
       try {
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${getToken()}`,
+          Authorization: `Bearer ${token}`,
         };
 
         const [meRes, interestsRes] = await Promise.all([
@@ -237,19 +237,32 @@ export default function HomeScreen() {
           }
         }
 
-        const localsUrl = filterParam
+        const localsPersonalizedUrl = filterParam
           ? `${API_BASE_URL}/users/search?filterInterests=${encodeURIComponent(filterParam)}&limit=10`
           : `${API_BASE_URL}/users/search?limit=10`;
 
         const [localsRes, reservationsData, conversationsData] = await Promise.all([
-          fetch(localsUrl, { headers }),
+          fetch(localsPersonalizedUrl, { headers }),
           getMyReservations().catch(() => [] as Reservation[]),
           getConversations().catch(() => ({ conversations: [] as Conversation[] })),
         ]);
 
         if (localsRes.ok) {
           const data = await localsRes.json();
-          setFeaturedLocals(data.hits ?? []);
+          let hits: ProfileHit[] = data.hits ?? [];
+
+          // Fallback: si la version personnalisée (intérêts) est vide,
+          // relancer une recherche large pour éviter une Home sans profils.
+          if (hits.length === 0 && filterParam) {
+            const fallbackRes = await fetch(`${API_BASE_URL}/users/search?limit=10`, { headers });
+            if (fallbackRes.ok) {
+              const fallbackData = await fallbackRes.json();
+              hits = fallbackData.hits ?? [];
+              setPersonalised(false);
+            }
+          }
+
+          setFeaturedLocals(hits);
         }
 
         const now = new Date();
@@ -339,10 +352,8 @@ export default function HomeScreen() {
           setFilterModalVisible(false);
           const p = new URLSearchParams();
           if (filters.cities.length)     p.set('cities',     filters.cities.join(','));
-          if (filters.languages.length)  p.set('languages',  filters.languages.join(','));
           if (filters.categories.length) p.set('categories', filters.categories.join(','));
           if (filters.sexes.length)      p.set('sexes',      filters.sexes.join(','));
-          if (filters.prices.length)     p.set('prices',     filters.prices.join(','));
           const qs = p.toString();
           router.push(qs ? `/explore?${qs}` : '/explore');
         }}
@@ -358,15 +369,19 @@ export default function HomeScreen() {
         >
 
           {/* ── Pour vous ── */}
-          {featuredLocals.length > 0 && (
-            <View style={styles.section}>
-              <SectionHeader
-                title="Pour vous"
-                subtitle={personalised ? `Sélectionnés selon vos intérêts` : `${featuredLocals.length} locals disponibles`}
-                linkLabel="Voir tout"
-                onLink={() => router.push('/explore')}
-                fontsLoaded={fontsLoaded}
-              />
+          <View style={styles.section}>
+            <SectionHeader
+              title="Pour vous"
+              subtitle={
+                featuredLocals.length > 0
+                  ? (personalised ? 'Sélectionnés selon vos intérêts' : `${featuredLocals.length} locals disponibles`)
+                  : 'Aucun local trouvé pour le moment'
+              }
+              linkLabel="Voir tout"
+              onLink={() => router.push('/explore')}
+              fontsLoaded={fontsLoaded}
+            />
+            {featuredLocals.length > 0 ? (
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -380,8 +395,25 @@ export default function HomeScreen() {
                   />
                 ))}
               </ScrollView>
-            </View>
-          )}
+            ) : (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.emptyCard,
+                  { borderColor: colors.separator, opacity: pressed ? 0.75 : 1 },
+                ]}
+                onPress={() => router.push('/explore')}
+              >
+                <View style={[styles.emptyIcon, { backgroundColor: colors.tagBackground }]}>
+                  <MaterialIcons name="travel-explore" size={22} color={colors.secondary} />
+                </View>
+                <View style={styles.emptyText}>
+                  <Text style={[styles.emptyTitle, { color: colors.navy, fontFamily: FontFamily.mono }]}>Aucun profil pour l'instant</Text>
+                  <Text style={[styles.emptySubtitle, { color: colors.textMuted, fontFamily: FontFamily.mono }]}>Lance une recherche sur Explore pour découvrir des locals</Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color={colors.textMuted} />
+              </Pressable>
+            )}
+          </View>
 
           {/* ── Destinations populaires ── */}
           <View style={styles.section}>
